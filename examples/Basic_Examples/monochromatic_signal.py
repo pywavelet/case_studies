@@ -75,8 +75,8 @@ snr2_freq_to_wavelet = compute_snr(signal_wavelet_freq, psd_wavelet_freq) ** 2
 print("SNR in frequency domain", SNR2_f**(1/2))
 print("SNR in time domain (parseval's theorem)", SNR2_t**(1/2))
 print("SNR using analytical formulas", SNR2_f**(1/2))
-print("SNR using wavelet domain", snr2_time_to_wavelet**(1/2))
-print("SNR using wavelet domain", snr2_freq_to_wavelet**(1/2))
+print("SNR using wavelet domain, time -> wavelet", snr2_time_to_wavelet**(1/2))
+print("SNR using wavelet domain, freq -> wavelet", snr2_freq_to_wavelet**(1/2))
 
 # Does this actually make sense?
 
@@ -93,7 +93,8 @@ from pywavelet.plotting import plot_wavelet_grid
 #                 freq_range=[18,22])
 # plt.clf()
 
-print("Maximum value at f = {} is {}".format(f0, max(signal_wavelet_freq.data.flatten())))
+print("Maximum value at f = {} is {} using freq -> wavelet".format(f0, max(signal_wavelet_freq.data.flatten())))
+print("Maximum value at f = {} is {} using time -> wavelet".format(f0, max(signal_wavelet_time.data.flatten())))
 # Ollie's bullshit formula
 print("Hypothesis for true wavelet domain transformation is {}".format(A*np.sqrt(2*Nf)))
 
@@ -105,7 +106,7 @@ print("Hypothesis for true wavelet domain transformation is {}".format(A*np.sqrt
 signal_freq_from_wavelet = from_wavelet_to_freq(signal_wavelet_freq, dt)
 # signal_time_from_wavelet = from_wavelet_to_time(signal_wavelet_time, dt)
 # signal_time_from_wavelet = from_wavelet_to_freq_to_time(signal_wavelet_time, dt)
-
+breakpoint()
 print("max value of periodigram from wavelet -> freq", np.max(np.abs(signal_freq_from_wavelet.data)**2))
 print("We expect a value of ", A**2 * ND**2 / 4)
 breakpoint()
