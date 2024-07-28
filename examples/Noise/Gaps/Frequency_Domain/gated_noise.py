@@ -169,7 +169,6 @@ psd_wavelet = evolutionary_psd_from_stationary_psd(
                                                 )
 
 SNR2_wavelet = np.nansum((h_wavelet*h_wavelet) / psd_wavelet)
-breakpoint()
 print("SNR in wavelet domain is", SNR2_wavelet**(1/2))
 
 # Gaps in the frequency domain. 
