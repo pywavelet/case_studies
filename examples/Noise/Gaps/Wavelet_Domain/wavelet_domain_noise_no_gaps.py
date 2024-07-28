@@ -115,7 +115,7 @@ a_true = 1e-20
 f_true = 3e-3
 fdot_true = 1e-8
 
-tmax = 20 * 60 * 60  # Final time
+tmax = 10 * 60 * 60  # Final time
 fs = 2 * f_true  # Sampling rate
 delta_t = np.floor(
     0.4 / fs
@@ -190,7 +190,6 @@ noise_wavelet_matrix = np.array(noise_wavelet_matrices)  # Shape: (1000, 32, 32)
 # Calculate the covariance matrix for each element in the 32x32 matrices
 N_f = noise_wavelet.data.shape[0]
 N_t = noise_wavelet.data.shape[1]
-cov_matrix_wavelet = np.zeros((N_f,N_t), dtype=float)
 
 for i in range(N_f):
     for j in range(N_t):
