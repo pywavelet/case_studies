@@ -72,6 +72,11 @@ def freq_PSD(waveform_t, delta_t):
 
     return freq, PSD
 
+def inner_prod(sig1_f, sig2_f, PSD, delta_t, N_t):
+    # Compute inner product. Useful for likelihood calculations and SNRs.
+    return (4 * delta_t / N_t) * np.real(
+        sum(np.conjugate(sig1_f) * sig2_f / PSD)
+    )
 a_true = 1e-20
 f_true = 3e-3
 fdot_true = 1e-8
@@ -96,13 +101,23 @@ h_t_pad = zero_pad(h_t)
 t_pad = np.arange(0,len(h_t_pad)*delta_t, delta_t)
 
 freq, PSD = freq_PSD(t, delta_t)  # Extract frequency bins and PSD.
+h_true_f = np.fft.rfft(h_t_pad)
+freq, PSD = freq_PSD(t, delta_t)  # Extract frequency bins and PSD.
 
+SNR2 = inner_prod(
+    h_true_f, h_true_f, PSD, delta_t, N
+)  # Compute optimal matched filtering SNR
+print("SNR of source", np.sqrt(SNR2))
 
 # Gaps in the frequency domain. 
 w_t = gap_routine(t_pad, start_window = 4, end_window = 6, lobe_length = 1, delta_t = delta_t)
 
+h_w_pad = w_t * h_t_pad
+
+h_w_fft = np.fft.rfft(h_w_pad)
 variance_noise_f = N * PSD/(4*delta_t)   # Compute variance in frequency domain (pos freq)
 
+cov_matrix_stat = np.linalg.inv(np.diag(2*variance_noise_f))
 # ====================== ESTIMATE THE NOISE COVARIANCE MATRIX ==============================
 print("Estimating the gated covariance matrix")
 noise_f_gap_vec = []
@@ -122,6 +137,17 @@ for i in tqdm(range(0,100000)):
 print("Now estimating covariance matrix")    
 cov_matrix_freq_gap = np.cov(noise_f_gap_vec,rowvar = False)
 print("Finished estimating the covariance matrix")
+
+cov_matrix_freq_gap_inv = np.linalg.inv(cov_matrix_freq_gap)
+
+breakpoint()
+
+SNR2_gaps = np.real((2*h_w_fft.conj() @ cov_matrix_freq_gap_inv @ h_w_fft))
+SNR2_no_gaps = np.real((2*h_true_f.conj() @ cov_matrix_stat @ h_true_f))
+
+print("SNR when there are gaps in the frequency domain", SNR2_gaps**(1/2))
+print("SNR when there are no gaps in the frequency domain", SNR2_gaps**(1/2))
+
 
 os.chdir('Data/')
 np.save("Cov_Matrix_estm_gap.npy", cov_matrix_freq_gap)

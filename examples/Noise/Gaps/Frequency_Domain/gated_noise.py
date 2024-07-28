@@ -194,6 +194,18 @@ Cov_Matrix = np.zeros(shape=(N//2 + 1,N//2 + 1),dtype=complex) # Matrix will be 
 print("Building the analytical covariance matrix")
 Cov_Matrix_Gated = get_Cov(Cov_Matrix, w_fft, w_star_fft, delta_f, PSD_pos_neg)
 
+Cov_Matrix_Gated_Inv = np.linalg.inv(Cov_Matrix_Gated)
+Cov_Matrix_Stat = np.linalg.inv(np.diag(N*PSD/(2*delta_t)))
+
+# =================== Compute SNRs ====================================
+h_w_t = h_t_pad * w_t
+h_w_fft = np.fft.rfft(h_w_t)
+
+SNR2_gaps = np.real((2*h_w_fft.conj() @ Cov_Matrix_Gated_Inv @ h_w_fft))
+SNR2_no_gaps = np.real((2*h_true_f.conj() @ Cov_Matrix_Stat @ h_true_f))
+
+print("SNR when there are gaps in the frequency domain", SNR2_gaps**(1/2))
+print("SNR when there are no gaps in the frequency domain", SNR2_no_gaps**(1/2))
 os.chdir('Data/')
 np.save("Cov_Matrix_analytical_gap.npy", Cov_Matrix_Gated)
 
