@@ -115,7 +115,7 @@ a_true = 1e-20
 f_true = 3e-3
 fdot_true = 1e-8
 
-tmax = 10 * 60 * 60  # Final time
+tmax = 20 * 60 * 60  # Final time
 fs = 2 * f_true  # Sampling rate
 delta_t = np.floor(
     0.4 / fs
@@ -151,7 +151,7 @@ psd = FrequencySeries(data = PSD, freq = freq)
 
 
 kwgs = dict(
-    Nf=128,
+    Nf=32,
 )
 
 
@@ -174,7 +174,7 @@ variance_noise_f = N * PSD/(4*delta_t)   # Compute variance in frequency domain 
 # ====================== ESTIMATE THE NOISE COVARIANCE MATRIX ==============================
 print("Estimating the gated covariance matrix")
 noise_wavelet_matrices = []
-for i in tqdm(range(0,2000)):
+for i in tqdm(range(0,20000)):
     np.random.seed(i)
     noise_f_iter = np.random.normal(0,np.sqrt(variance_noise_f))  + 1j * np.random.normal(0,np.sqrt(variance_noise_f)) 
     noise_f_iter[0] = np.sqrt(2)*noise_f_iter[0].real
@@ -190,7 +190,7 @@ noise_wavelet_matrix = np.array(noise_wavelet_matrices)  # Shape: (1000, 32, 32)
 # Calculate the covariance matrix for each element in the 32x32 matrices
 N_f = noise_wavelet.data.shape[0]
 N_t = noise_wavelet.data.shape[1]
-cov_matrix_wavelet = np.zeros((N_f,N_t), dtype=complex)
+cov_matrix_wavelet = np.zeros((N_f,N_t), dtype=float)
 
 for i in range(N_f):
     for j in range(N_t):
@@ -203,14 +203,15 @@ from pywavelet.plotting import plot_wavelet_grid
 
 import matplotlib.pyplot as plt
 fig,ax = plt.subplots(2,1)
-plot_wavelet_grid(abs(noise_wavelet.data * noise_wavelet.data),
+
+plot_wavelet_grid(cov_matrix_wavelet,
                 time_grid=noise_wavelet.time,
                 freq_grid=noise_wavelet.freq,
                 ax=ax[0],
                 zscale="log",
                 freq_scale="linear",
                 absolute=False,
-                freq_range = [noise_wavelet.freq[0], 3e-3])
+                freq_range = [noise_wavelet.freq[1], 5e-3])
 
 plot_wavelet_grid(psd_wavelet.data,
                 time_grid=psd_wavelet.time,
@@ -219,9 +220,12 @@ plot_wavelet_grid(psd_wavelet.data,
                 zscale="log",
                 freq_scale="linear",
                 absolute=False,
-                freq_range = [psd_wavelet.freq[0], 3e-3])
+                freq_range = [psd_wavelet.freq[1], 5e-3])
 plt.show()
 plt.clf()
+
+SNR2_estmated_wavelet = np.nansum((h_wavelet*h_wavelet) / cov_matrix_wavelet)
+print("estimated SNR in using wavelet covariance", SNR2_estmated_wavelet**(1/2))
 
 breakpoint()
 
