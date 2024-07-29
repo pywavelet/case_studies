@@ -11,42 +11,15 @@ import pytest
 from pywavelet.data import Data
 from pywavelet.psd import evolutionary_psd_from_stationary_psd
 from pywavelet.transforms.types import FrequencySeries,TimeSeries
-from pywavelet.utils.lisa import get_lisa_data, waveform, FFT, zero_pad
-
-from pywavelet.utils.lvk import inject_signal_in_noise
-from pywavelet.utils.snr import compute_snr
-from pywavelet.transforms import from_time_to_wavelet, from_wavelet_to_freq, from_wavelet_to_time
+from pywavelet.utils.lisa import waveform, zero_pad
+from noise_curves import noise_PSD_AE
 
 from gap_funcs import gap_routine, get_Cov
 np.random.seed(1234)
 
 
 
-def PowerSpectralDensity(f):
-    """
-    PSD obtained from: https://arxiv.org/pdf/1803.01944.pdf
-    Removed galactic confusion noise. Non stationary effect.
-    """
 
-    L = 2.5 * 10**9  # Length of LISA arm
-    f0 = 19.09 * 10**-3
-
-    Poms = ((1.5 * 10**-11) ** 2) * (
-        1 + ((2 * 10**-3) / f) ** 4
-    )  # Optical Metrology Sensor
-    Pacc = (
-        (3 * 10**-15) ** 2
-        * (1 + (4 * 10**-3 / (10 * f)) ** 2)
-        * (1 + (f / (8 * 10**-3)) ** 4)
-    )  # Acceleration Noise
-
-    PSD = (
-        (10 / (3 * L**2))
-        * (Poms + (4 * Pacc) / ((2 * np.pi * f)) ** 4)
-        * (1 + 0.6 * (f / f0) ** 2)
-    )  # PSD
-
-    return PSD
 
 
 def __zero_pad(data):
@@ -134,12 +107,14 @@ N = int(
 )  # Round length of time series to a power of two.
 # Length of time series
 h_t = waveform(a_true, f_true, fdot_true, t)
-h_t_pad = zero_pad(h_t)
+taper_signal = tukey(len(h_t), alpha = 0.2)
+h_t_pad = zero_pad(h_t*taper_signal)
 
 t_pad = np.arange(0,len(h_t_pad)*delta_t, delta_t)
 
 h_true_f = np.fft.rfft(h_t_pad)
-freq, PSD = freq_PSD(t, delta_t)  # Extract frequency bins and PSD.
+freq = np.fft.rfftfreq(N, delta_t); freq[0] = freq[1]
+PSD = noise_PSD_AE(freq)
 
 SNR2 = inner_prod(
     h_true_f, h_true_f, PSD, delta_t, N

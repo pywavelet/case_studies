@@ -30,7 +30,7 @@ def gap_routine(t, start_window, end_window, lobe_length = 3, delta_t = 10):
             j=0
         
 
-    alpha_full = 0.1
+    alpha_full = 0.2
     total_window = tukey(len(new_window), alpha = alpha_full)
 
     new_window *= total_window
@@ -82,3 +82,4 @@ def get_Cov(Cov_Matrix, w_fft, w_fft_star, delta_f, PSD):
     Cov_Matrix = Cov_Matrix - diagonal_elements + diagonal_elements_real 
     Cov_Matrix = Cov_Matrix + np.conjugate(Cov_Matrix.T)
     return Cov_Matrix
+

@@ -191,6 +191,7 @@ noise_wavelet_matrix = np.array(noise_wavelet_matrices)  # Shape: (1000, 32, 32)
 N_f = noise_wavelet.data.shape[0]
 N_t = noise_wavelet.data.shape[1]
 
+cov_matrix_wavelet = np.zeros((N_f,N_t),dtype = float)
 for i in range(N_f):
     for j in range(N_t):
         cov_matrix_wavelet[i, j] = np.cov(noise_wavelet_matrix[:, i, j], rowvar=False)

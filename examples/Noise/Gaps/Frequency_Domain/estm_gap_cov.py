@@ -2,82 +2,17 @@ import os
 
 
 import numpy as np
-from corner import corner
-from scipy.signal.windows import tukey
 from tqdm import tqdm
 
 from numpy.random import normal
-import pytest
 
-from pywavelet.data import Data
-from pywavelet.psd import evolutionary_psd_from_stationary_psd
-from pywavelet.transforms.types import FrequencySeries,TimeSeries
-from pywavelet.utils.lisa import get_lisa_data, waveform, FFT, zero_pad
+from pywavelet.utils.lisa import waveform, zero_pad, inner_prod
+from noise_curves import noise_PSD_AE
 
-from pywavelet.utils.lvk import inject_signal_in_noise
-from pywavelet.utils.snr import compute_snr
-from pywavelet.transforms import from_time_to_wavelet, from_wavelet_to_freq, from_wavelet_to_time
-
-from gap_funcs import gap_routine, get_Cov
+from gap_funcs import gap_routine 
 np.random.seed(1234)
 
-
-
-def PowerSpectralDensity(f):
-    """
-    PSD obtained from: https://arxiv.org/pdf/1803.01944.pdf
-    Removed galactic confusion noise. Non stationary effect.
-    """
-
-    L = 2.5 * 10**9  # Length of LISA arm
-    f0 = 19.09 * 10**-3
-
-    Poms = ((1.5 * 10**-11) ** 2) * (
-        1 + ((2 * 10**-3) / f) ** 4
-    )  # Optical Metrology Sensor
-    Pacc = (
-        (3 * 10**-15) ** 2
-        * (1 + (4 * 10**-3 / (10 * f)) ** 2)
-        * (1 + (f / (8 * 10**-3)) ** 4)
-    )  # Acceleration Noise
-
-    PSD = (
-        (10 / (3 * L**2))
-        * (Poms + (4 * Pacc) / ((2 * np.pi * f)) ** 4)
-        * (1 + 0.6 * (f / f0) ** 2)
-    )  # PSD
-
-    return PSD
-
-
-def __zero_pad(data):
-    """
-    This function takes in a vector and zero pads it so it is a power of two.
-    We do this for the O(Nlog_{2}N) cost when we work in the frequency domain.
-    """
-    N = len(data)
-    pow_2 = np.ceil(np.log2(N))
-    return np.pad(data, (0, int((2**pow_2) - N)), "constant")
-
-
-def freq_PSD(waveform_t, delta_t):
-    """
-    Here we take in a waveform and sample the correct fourier frequencies and output the PSD. There is no
-    f = 0 frequency bin because the PSD is undefined there.
-    """
-    n_t = len(__zero_pad(waveform_t))
-    freq = np.fft.rfftfreq(n_t, delta_t)
-    freq[0] = freq[1] # redefining zeroth frequency to stop PSD -> infinity
-    PSD = PowerSpectralDensity(freq)
-
-    return freq, PSD
-
-def inner_prod(sig1_f, sig2_f, PSD, delta_t, N_t):
-    # Compute inner product. Useful for likelihood calculations and SNRs.
-    return (4 * delta_t / N_t) * np.real(
-        sum(np.conjugate(sig1_f) * sig2_f / PSD)
-    )
-a_true = 1e-20
+a_true = 1e-21
 f_true = 3e-3
 fdot_true = 1e-8
 
@@ -100,9 +35,11 @@ h_t_pad = zero_pad(h_t)
 
 t_pad = np.arange(0,len(h_t_pad)*delta_t, delta_t)
 
-freq, PSD = freq_PSD(t, delta_t)  # Extract frequency bins and PSD.
+freq = np.fft.rfftfreq(N, delta_t); freq[0] = freq[1]
+PSD = noise_PSD_AE(freq, TDI = "TDI1")
+
+breakpoint()
 h_true_f = np.fft.rfft(h_t_pad)
-freq, PSD = freq_PSD(t, delta_t)  # Extract frequency bins and PSD.
 
 SNR2 = inner_prod(
     h_true_f, h_true_f, PSD, delta_t, N
