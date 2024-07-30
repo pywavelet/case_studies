@@ -83,3 +83,28 @@ def get_Cov(Cov_Matrix, w_fft, w_fft_star, delta_f, PSD):
     Cov_Matrix = Cov_Matrix + np.conjugate(Cov_Matrix.T)
     return Cov_Matrix
 
+
+def regularise_matrix(Cov_Matrix, window, tol = 0.01):
+    """
+    Inputs: Cov_Matrix : Noise covariance matrix
+            window : window function
+            tol (arg): Essentially fraction of singular values to ignore in window
+
+    Outputs: Cov_Matrix_reg_inv : Regularised inverse
+    """
+
+    U,S,Vh = np.linalg.svd(Cov_Matrix)      # Compute SVD
+    N_remove = len(np.argwhere(window <= tol))  # Number of singular values to remove
+    N_retain = len(S) - N_remove               # Compute number of singular values to retain
+    S_inv = S**-1                              # Compute inverse of singular matrix. 
+    
+    S_inv_regular = []
+    for i in range(0,len(S)):
+        if i >= N_retain: 
+            S_inv_regular.append(0)           # Set infinite singular values to zero. 
+        else:
+            S_inv_regular.append(S_inv[i])
+    Cov_Matrix_reg_inv = Vh.T.conj() @ np.diag(S_inv_regular) @ U.conj().T
+    np.fill_diagonal(Cov_Matrix_reg_inv, np.real(np.diag(Cov_Matrix_reg_inv))) # Force diagonal to be real. 
+    return Cov_Matrix_reg_inv 
+

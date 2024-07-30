@@ -10,50 +10,12 @@ import pytest
 
 from pywavelet.data import Data
 from pywavelet.psd import evolutionary_psd_from_stationary_psd
-from pywavelet.transforms.types import FrequencySeries,TimeSeries
+from pywavelet.transforms.types import FrequencySeries
 from pywavelet.utils.lisa import waveform, zero_pad
 from noise_curves import noise_PSD_AE
 
-from gap_funcs import gap_routine, get_Cov
+from gap_funcs import gap_routine, get_Cov, regularise_matrix
 np.random.seed(1234)
-
-
-
-
-
-
-def __zero_pad(data):
-    """
-    This function takes in a vector and zero pads it so it is a power of two.
-    We do this for the O(Nlog_{2}N) cost when we work in the frequency domain.
-    """
-    N = len(data)
-    pow_2 = np.ceil(np.log2(N))
-    return np.pad(data, (0, int((2**pow_2) - N)), "constant")
-
-
-def FFT(waveform):
-    """
-    Here we taper the signal, pad and then compute the FFT. We remove the zeroth frequency bin because
-    the PSD (for which the frequency domain waveform is used with) is undefined at f = 0.
-    """
-    N = len(waveform)
-    taper = tukey(N, 0.1)
-    waveform_w_pad = __zero_pad(waveform * taper)
-    return np.fft.rfft(waveform_w_pad)
-
-
-def freq_PSD(waveform_t, delta_t):
-    """
-    Here we take in a waveform and sample the correct fourier frequencies and output the PSD. There is no
-    f = 0 frequency bin because the PSD is undefined there.
-    """
-    n_t = len(__zero_pad(waveform_t))
-    freq = np.fft.rfftfreq(n_t, delta_t)
-    freq[0] = freq[1] # redefining zeroth frequency to stop PSD -> infinity
-    PSD = PowerSpectralDensity(freq)
-
-    return freq, PSD
 
 
 def inner_prod(sig1_f, sig2_f, PSD, delta_t, N_t):
@@ -73,24 +35,16 @@ def waveform(a, f, fdot, t, eps=0):
 
     return a * (np.sin((2 * np.pi) * (f * t + 0.5 * fdot * t**2)))
 
-
-def llike(data_wavelet, signal_wavelet, psd_wavelet):
-    """
-    Computes log likelihood
-    Assumption: Known PSD otherwise need additional term
-    Inputs:
-    data in frequency domain
-    Proposed signal in frequency domain
-    Variance of noise
-    """
-    inn_prod_wavelet = np.nansum(((data_wavelet - signal_wavelet) ** 2) / psd_wavelet)
-    return -0.5 * inn_prod_wavelet
-
 # Set true parameters. These are the parameters we want to estimate using MCMC.
 
-a_true = 1e-20
+a_true = 1e-21
 f_true = 3e-3
 fdot_true = 1e-8
+
+TDI = "TDI1"
+start_window = 4
+end_window = 6
+lobe_length = 1
 
 tmax = 10 * 60 * 60  # Final time
 fs = 2 * f_true  # Sampling rate
@@ -114,7 +68,7 @@ t_pad = np.arange(0,len(h_t_pad)*delta_t, delta_t)
 
 h_true_f = np.fft.rfft(h_t_pad)
 freq = np.fft.rfftfreq(N, delta_t); freq[0] = freq[1]
-PSD = noise_PSD_AE(freq)
+PSD = noise_PSD_AE(freq, TDI = TDI)
 
 SNR2 = inner_prod(
     h_true_f, h_true_f, PSD, delta_t, N
@@ -152,24 +106,29 @@ w_t = gap_routine(t_pad, start_window = 4, end_window = 6, lobe_length = 1, delt
 freq_bins_pos_neg = np.fft.fftshift(np.fft.fftfreq(len(w_t), delta_t))
 freq_bins_pos_neg[N//2] = freq_bins_pos_neg[N//2 + 1]
 
-PSD_pos_neg = PowerSpectralDensity(freq_bins_pos_neg)
+PSD_pos_neg = noise_PSD_AE(freq_bins_pos_neg, TDI = TDI)
 
 
-N = len(w_t)
 delta_f = freq[2] - freq[1]
-# - use positive and negative frequencies.
-    
+
+# - use positive and negative frequencies. 
 w_fft = np.fft.fftshift(np.fft.fft(w_t))  # Compute fft of windowing function (neg_pos_freq)
 w_star_fft = np.conjugate(w_fft)  # Compute conjugate 
 
-Cov_Matrix = np.zeros(shape=(N//2 + 1,N//2 + 1),dtype=complex) # Matrix will be filled full of complex numbers.
+Cov_Matrix = np.zeros(shape=(N//2 + 1,N//2 + 1), dtype=complex) # Matrix will be filled full of complex numbers.
                                                                # here we only have positive frequencies
 
 # Build analytical covariance matrix
 print("Building the analytical covariance matrix")
 Cov_Matrix_Gated = get_Cov(Cov_Matrix, w_fft, w_star_fft, delta_f, PSD_pos_neg)
-
 Cov_Matrix_Gated_Inv = np.linalg.inv(Cov_Matrix_Gated)
+
+
+# Regularise covariance matrix (stop it being singular)
+zero_points_window = np.argwhere(w_t == 0)[1][0]
+tol = w_t[zero_points_window - 1] # Last moment before w_t is nonzero
+Cov_Matrix_Gated_Inv_Regularised = regularise_matrix(Cov_Matrix_Gated, w_t, tol = tol)
+
 Cov_Matrix_Stat = np.linalg.inv(np.diag(N*PSD/(2*delta_t)))
 
 # =================== Compute SNRs ====================================
@@ -177,12 +136,16 @@ h_w_t = h_t_pad * w_t
 h_w_fft = np.fft.rfft(h_w_t)
 
 SNR2_gaps = np.real((2*h_w_fft.conj() @ Cov_Matrix_Gated_Inv @ h_w_fft))
+SNR2_gaps_regularised = np.real((2*h_w_fft.conj() @ Cov_Matrix_Gated_Inv_Regularised @ h_w_fft))
 SNR2_no_gaps = np.real((2*h_true_f.conj() @ Cov_Matrix_Stat @ h_true_f))
 
-print("SNR when there are gaps in the frequency domain", SNR2_gaps**(1/2))
-print("SNR when there are no gaps in the frequency domain", SNR2_no_gaps**(1/2))
+print("SNR when there are gaps in the frequency domain:", SNR2_gaps**(1/2))
+print("SNR when there are gaps in the frequency domain using regularised matrix:", SNR2_gaps_regularised**(1/2))
+print("SNR when there are no gaps in the frequency domain:", SNR2_no_gaps**(1/2))
+
 os.chdir('Data/')
 np.save("Cov_Matrix_analytical_gap.npy", Cov_Matrix_Gated)
+np.save("Cov_Matrix_analytical_inv_regularised", Cov_Matrix_Gated_Inv_Regularised)
 
 
 
