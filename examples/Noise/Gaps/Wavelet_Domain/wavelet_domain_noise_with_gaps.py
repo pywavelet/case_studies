@@ -54,9 +54,12 @@ fdot_true = 1e-8
 
 TDI = "TDI1"
 
+
 start_window = 4
 end_window = 6
-lobe_length = 1.5
+lobe_length = 1
+
+Nf = 128
 
 tmax = 10 * 60 * 60  # Final time
 fs = 2 * f_true  # Sampling rate
@@ -93,7 +96,7 @@ psd = FrequencySeries(data = PSD, freq = freq)
 
 
 kwgs = dict(
-    Nf=32,
+    Nf=Nf,
 )
 
 
@@ -117,7 +120,6 @@ print("SNR in wavelet domain is", SNR2_wavelet**(1/2))
 signal_f_series = FrequencySeries(data=h_true_f, freq=freq)
 psd = FrequencySeries(data = PSD, freq = freq)
 
-Nf = 32
 Nt = N//Nf
 print("Length of signal: ",N)
 print("Wavelet bins in frequency= ",Nf)
@@ -143,10 +145,7 @@ print("SNR in wavelet domain is", SNR2_wavelet**(1/2))
 variance_noise_f = N * PSD/(4*delta_t)   # Compute variance in frequency domain (pos freq)
 
 # Gaps in the frequency domain. 
-start_window = 5
-end_window = 7
-lobe_length = 1.5
-w_t = gap_routine(t_pad, start_window = 4, end_window = 6, lobe_length = 1, delta_t = delta_t)
+w_t = gap_routine(t_pad, start_window = start_window, end_window = end_window, lobe_length = lobe_length, delta_t = delta_t)
 
 h_pad_w = w_t * h_t_pad 
 
@@ -226,7 +225,7 @@ kwargs_h_matrix = {"title":"Signal wavelet matrix"}
 kwargs_gap_wavelet_matrix = {"title":"Wavelet covariance matrix with gaps in data"}
 kwargs_h_gap_matrix = {"title":"Signal wavelet matrix gaps"}
 
-freq_range = [0,0.02]
+freq_range = [0,0.007]
 plot_wavelet_grid(cov_matrix_wavelet,
                 time_grid=psd_wavelet.time/60/60,
                 freq_grid=psd_wavelet.freq,
@@ -270,7 +269,7 @@ plot_wavelet_grid(h_wavelet_gap.data,
                 **kwargs_h_gap_matrix)
 
 
-plt.savefig("plots/Spectrogram_Nf_{}_Nt_{}_start_{}_end_{}_lobe_length_{}_tmax_{}.pdf".format(N_f, N_t, 4, 6, 1, tmax), bbox_inches = "tight")
+plt.savefig("plots/Spectrogram_Nf_{}_Nt_{}_start_{}_end_{}_lobe_length_{}_tmax_{}.pdf".format(N_f, N_t, start_window, end_window, lobe_length, tmax), bbox_inches = "tight")
 plt.show()
 plt.clf()
 
@@ -291,11 +290,11 @@ index_time_end_wavelet_bin = np.argwhere(noise_gap_wavelet.time.data /60/60  < e
 cov_matrix_gap_wavelet_regularise = cov_matrix_gap_wavelet.copy() 
 psd_matrix_gap_regularise = psd_wavelet.copy()
 
-cov_matrix_gap_wavelet_regularise[:, index_time_start_wavelet_bin:index_time_end_wavelet_bin] == np.nan
-psd_matrix_gap_regularise[:, index_time_start_wavelet_bin:index_time_end_wavelet_bin] == np.nan
+cov_matrix_gap_wavelet_regularise[:, index_time_start_wavelet_bin:index_time_end_wavelet_bin] = np.nan
+psd_matrix_gap_regularise[:, index_time_start_wavelet_bin:index_time_end_wavelet_bin] = np.nan
 
 h_wavelet_gap_regularise = h_wavelet_gap.copy()
-h_wavelet_gap_regularise[:, index_time_start_wavelet_bin:index_time_end_wavelet_bin] == np.nan
+h_wavelet_gap_regularise[:, index_time_start_wavelet_bin:index_time_end_wavelet_bin] = np.nan
 
 
 SNR2_estmated_gaps_regularised_wavelet = np.nansum((h_wavelet_gap_regularise*h_wavelet_gap_regularise) / cov_matrix_gap_wavelet_regularise)
