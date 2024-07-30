@@ -8,7 +8,7 @@ from tqdm import tqdm
 from pywavelet.data import Data
 from pywavelet.psd import evolutionary_psd_from_stationary_psd
 from pywavelet.transforms.types import FrequencySeries, TimeSeries
-from pywavelet.transforms.to_wavelets import (from_freq_to_wavelet)
+from pywavelet.transforms.to_wavelets import (from_freq_to_wavelet, from_time_to_wavelet)
 from pywavelet.transforms.from_wavelets import (from_wavelet_to_time)
 from pywavelet.utils.lisa import waveform,  zero_pad
 from pywavelet.plotting import plot_wavelet_grid
@@ -16,6 +16,7 @@ import matplotlib.pyplot as plt
 
 sys.path.append("../../Frequency_Domain/")
 from noise_curves import noise_PSD_AE
+from stitch_data_set import stitch_together_data_wavelet
 
 np.random.seed(1234)
 
@@ -77,7 +78,8 @@ start_window = 4
 end_window = 6
 lobe_length = 1
 
-Nf = 8
+# Nf = 8 works
+Nf = 64
 
 tmax = 10 * 60 * 60  # Final time
 fs = 2 * f_true  # Sampling rate
@@ -174,226 +176,31 @@ plt.grid()
 plt.savefig("../plots/waveform_nan.pdf",bbox_inches = "tight")
 plt.clf()
 
+h_approx_stitched_data, mask = stitch_together_data_wavelet(w_t, t_pad, h_pad_w, Nf, delta_t, start_window, end_window)
+# ===================== Old data set, force to have nans ===========================
 
-start_index_gap = np.argwhere(np.isnan(w_t) == True)[0][0]
-end_index_gap = np.argwhere(np.isnan(w_t) == True)[-1][0]
-N_nans = len(np.argwhere(np.isnan(w_t)))
+h_wavelet_matrix = h_wavelet.data
+h_wavelet_matrix_with_nans = h_wavelet_matrix.copy()
+h_wavelet_matrix_with_nans[:, ~mask] = np.nan 
 
-#================= PROCESS CHUNK 1 ===================
-kwgs_chunk_1 = dict(Nf = 8)
-h_chunk_1 = h_pad_w[0:start_index_gap]
-h_chunk_1_pad = zero_pad(h_chunk_1)
-ND_1 = len(h_chunk_1_pad)
-Nf_1 = 8
-Nt_1 = ND_1//Nf_1
-kwgs_chunk_2 = dict(Nf = Nf_1)
-freq_bin_1 = np.fft.rfftfreq(ND_1, delta_t); freq_bin_1[0] = freq_bin_1[0]
-h_chunk_1_f = np.fft.rfft(h_chunk_1_pad)
-h_chunk_1_freq_series = FrequencySeries(h_chunk_1_f , freq = freq_bin_1)
-h_chunk_1_wavelet = from_freq_to_wavelet(h_chunk_1_freq_series, **kwgs_chunk_1)
+Wavelet_Matrix_with_nans = Wavelet_Matrix.copy()
+Wavelet_Matrix_with_nans[:,~mask] = np.nan
 
-#================= PROCESS CHUNK 2 ===================
-h_chunk_2 = h_pad_w[end_index_gap+1:]
-h_chunk_2_pad = zero_pad(h_chunk_2)
-ND_2 = len(h_chunk_2_pad)
-Nf_2 = 8
-Nt_2 = ND_2//Nf_2
-kwgs_chunk_2 = dict(Nf = Nf_2)
-freq_bin_2 = np.fft.rfftfreq(ND_2, delta_t); freq_bin_2[0] = freq_bin_2[0]
-h_chunk_2_f = np.fft.rfft(h_chunk_2_pad)
-h_chunk_2_f_freq_series = FrequencySeries(h_chunk_2_f, freq = freq)
-h_chunk_2_wavelet = from_freq_to_wavelet(h_chunk_2_f_freq_series, **kwgs_chunk_2)
+SNR2_original_data_gaps = np.nansum( h_wavelet_matrix_with_nans * h_wavelet_matrix_with_nans / Wavelet_Matrix_with_nans) 
+SNR2_stitched_data_gaps = np.nansum( h_approx_stitched_data * h_approx_stitched_data / Wavelet_Matrix_with_nans) 
 
-#===================== Now need to stitch together the data sets =========
+print("Using original data stream with gaps, we find SNR = ", np.sqrt(SNR2_original_data_gaps))
+print("Using stitched together data stream with gaps, we find SNR = ", np.sqrt(SNR2_stitched_data_gaps))
 
-# Extract the time bins of wavelet data set 1
-wavelet_time_bins_chunk_1 = h_chunk_1_wavelet.time.data
+# Can I do the same thing with noise? 
 
-# Create mask. True for when wavelet times < start window. False otherwise
-mask_chunk_1 = wavelet_time_bins_chunk_1 < start_window * 60 * 60 
+noise_f_iter = np.random.normal(0,np.sqrt(variance_noise_f))  + 1j * np.random.normal(0,np.sqrt(variance_noise_f)) 
+noise_f_iter[0] = np.sqrt(2)*noise_f_iter[0].real
+noise_f_iter[-1] = np.sqrt(2)*noise_f_iter[-1].real
 
-# Force data within gap to be nans for chunk 1 
-h_chunk_1_w_nans = h_chunk_1_wavelet.data.copy()
-h_chunk_1_w_nans[:, ~mask_chunk_1] = np.nan
+noise_t = np.fft.irfft(noise_f_iter)
 
-# Chunk 2 has no gaps. The signal starts outside the gap and is just 
-# zero padded. This extra zero padding contributes nothing and we can
-# remove it to match with the original data set. 
+noise_wavelet_stitched, _ = stitch_together_data_wavelet(w_t, t_pad, noise_t, Nf, delta_t, start_window, end_window)
 
-# Extract wavelet time bins full signal. This is still general, could get this
-# from the fitted window function. 
-wavelet_times_full_signal = h_wavelet.time.data
-
-# Generate mask. True outside of gap, false inside gap
-mask = (wavelet_times_full_signal < start_window*60*60) | (wavelet_times_full_signal > end_window*60*60)
-
-# Compute number of indices where gap exists (count true number of nans in full data set )
-N_time_indices_for_gaps_full_signal = len(mask) - sum(mask)
-# Compute the number of indices where gap exists in chunk 1
-N_time_indicies_for_gaps_chunk_1 = len(mask_chunk_1) - sum(mask_chunk_1)
-# Compute number of extra gaps to append in total
-N_gap_to_append = N_time_indices_for_gaps_full_signal - N_time_indicies_for_gaps_chunk_1
-
-h_chunk_1_wavelet_matrix = h_chunk_1_wavelet.data
-# Create a matrix of NaNs with the same number of rows and N_gap_to_append columns
-nan_columns = np.full((h_chunk_1_wavelet_matrix.shape[0], N_gap_to_append), np.nan)
-h_chunk_1_wavelet_matrix_with_gaps = np.concatenate((h_chunk_1_w_nans, nan_columns), axis=1)
-
-# Concatenate chunk 1 and chunk 2. This will have new Nt dimensions larger than old Nt
-h_chunk_1_and_chunk_2 = np.concatenate((h_chunk_1_wavelet_matrix_with_gaps, h_chunk_2_wavelet.data), axis = 1)
-
-# Crop the remaining values of Nt. Due to zero padding, they're zero anyway. 
-h_stitched_data = h_chunk_1_and_chunk_2[:, :Nt]
-# The matrix above has dimensions the same as the original data set :). Nf must be fixed. 
-
-breakpoint()
-
-
-
-
-# h_pad_fft = np.fft.rfft(h_pad_w) 
-
-# signal_gap_f = FrequencySeries(h_pad_fft, freq = freq)
-signal_gap_t = TimeSeries(h_pad_w, time = t)
-h_wavelet_gap = Data.from_timeseries(signal_gap_t, **kwgs).wavelet
-
-# Check, is this working?
-
-h_t_gap_reconstructed = from_wavelet_to_time(h_wavelet_gap, delta_t)
-
-# plt.plot(t_pad/60/60,h_pad_w,label = 'Truth') 
-# plt.plot(t_pad/60/60,h_t_gap_reconstructed.data,label = 'reconstructed signal', linestyle = '--')
-# plt.xlabel(r'Time [hours]')
-# plt.ylabel(r'Amplitude')
-# plt.title(r'Reconstruction')
-# plt.show()
-
-
-
-# ====================== ESTIMATE THE NOISE COVARIANCE MATRIX ==============================
-print("Estimating the gated covariance matrix")
-noise_wavelet_matrices = []
-noise_gap_wavelet_matrices = []
-for i in tqdm(range(0,500)):
-    np.random.seed(i)
-    noise_f_iter = np.random.normal(0,np.sqrt(variance_noise_f))  + 1j * np.random.normal(0,np.sqrt(variance_noise_f)) 
-    noise_f_iter[0] = np.sqrt(2)*noise_f_iter[0].real
-    noise_f_iter[-1] = np.sqrt(2)*noise_f_iter[-1].real
-
-    noise_f_freq_series = FrequencySeries(noise_f_iter, freq = freq)    
-    noise_wavelet = from_freq_to_wavelet(noise_f_freq_series, **kwgs)
-
-    noise_t_iter = np.fft.irfft(noise_f_iter)      # Compute stationary noise in TD
-    noise_t_gap_iter = w_t * noise_t_iter  # Place gaps in the noise from the TD
-    noise_f_gap_iter = np.fft.rfft(noise_t_gap_iter) # Convert into FD 
-    
-    noise_f_freq_gap_series = FrequencySeries(noise_f_gap_iter, freq = freq)
-    noise_gap_wavelet = from_freq_to_wavelet(noise_f_freq_gap_series, **kwgs)
-
-    noise_wavelet_matrices.append(noise_wavelet.data)
-    noise_gap_wavelet_matrices.append(noise_gap_wavelet.data)
-
-
-# Convert list to 3D numpy array for easier manipulation
-noise_gap_wavelet_matrix = np.array(noise_gap_wavelet_matrices)  # Shape: (1000, 32, 32)
-noise_wavelet_matrix = np.array(noise_wavelet_matrices)  # Shape: (1000, 32, 32)
-
-# Calculate the covariance matrix for each element in the 32x32 matrices
-N_f = noise_gap_wavelet_matrix[0].data.shape[0]
-N_t = noise_gap_wavelet_matrix[0].data.shape[1]
-
-cov_matrix_wavelet = np.zeros((N_f,N_t), dtype = float)
-cov_matrix_gap_wavelet = np.zeros((N_f,N_t), dtype=float)
-
-for i in range(N_f):
-    for j in range(N_t):
-        cov_matrix_wavelet[i,j] = np.cov(noise_wavelet_matrix[:, i, j], rowvar=False)
-        cov_matrix_gap_wavelet[i, j] = np.cov(noise_gap_wavelet_matrix[:, i, j], rowvar=False)
-
-
-# add noise to wavelet coefficients, (easier to see)
-
-fig,ax = plt.subplots(2,2, figsize = (16,8))
-
-kwargs_cov_matrix = {"title":"Estimated wavelet covariance matrix"}
-kwargs_h_matrix = {"title":"Signal wavelet matrix"}
-kwargs_gap_wavelet_matrix = {"title":"Wavelet covariance matrix with gaps in data"}
-kwargs_h_gap_matrix = {"title":"Signal wavelet matrix gaps"}
-
-freq_range = [0,0.007]
-plot_wavelet_grid(cov_matrix_wavelet,
-                time_grid=psd_wavelet.time/60/60,
-                freq_grid=psd_wavelet.freq,
-                ax=ax[0,0],
-                zscale="log",
-                freq_scale="linear",
-                absolute=False,
-                freq_range = freq_range,
-                **kwargs_cov_matrix)
-
-plot_wavelet_grid(h_wavelet.data,
-                time_grid=h_wavelet.time/60/60,
-                freq_grid=h_wavelet.freq,
-                ax=ax[0,1],
-                zscale="linear",
-                freq_scale="linear",
-                absolute=False,
-                freq_range = freq_range,
-                **kwargs_h_matrix)
-
-                
-plot_wavelet_grid(cov_matrix_gap_wavelet,
-                time_grid=noise_gap_wavelet.time/60/60,
-                freq_grid=noise_gap_wavelet.freq,
-                ax=ax[1,0],
-                zscale="log",
-                freq_scale="linear",
-                absolute=False,
-                freq_range = freq_range,
-                **kwargs_gap_wavelet_matrix)
-
-
-plot_wavelet_grid(h_wavelet_gap.data,
-                time_grid=h_wavelet_gap.time/60/60,
-                freq_grid=h_wavelet_gap.freq,
-                ax=ax[1,1],
-                zscale="linear",
-                freq_scale="linear",
-                absolute=False,
-                freq_range = freq_range,
-                **kwargs_h_gap_matrix)
-
-
-plt.savefig("plots/Spectrogram_Nf_{}_Nt_{}_start_{}_end_{}_lobe_length_{}_tmax_{}.pdf".format(N_f, N_t, start_window, end_window, lobe_length, tmax), bbox_inches = "tight")
-plt.show()
-plt.clf()
-
-w_t = gap_routine(t_pad, start_window = 4, end_window = 6, lobe_length = 1, delta_t = delta_t)
-
-SNR2_estmated_no_gaps_wavelet = np.nansum((h_wavelet*h_wavelet) / cov_matrix_wavelet)
-SNR2_estmated_gaps_wavelet = np.nansum((h_wavelet_gap*h_wavelet_gap) / cov_matrix_gap_wavelet)
-
-print("estimated SNR with gaps using estimated gated wavelet covariance", SNR2_estmated_gaps_wavelet**(1/2))
-print("estimated SNR with no gaps using estimated wavelet covariance", SNR2_estmated_no_gaps_wavelet**(1/2))
-
-# Actually... could I just take the generated matrix and remove elements?
-
-index_time_start_wavelet_bin = np.argwhere(noise_gap_wavelet.time.data /60/60 > start_window)[0][0]
-index_time_end_wavelet_bin = np.argwhere(noise_gap_wavelet.time.data /60/60  < end_window)[-1][0]
-
-
-cov_matrix_gap_wavelet_regularise = cov_matrix_gap_wavelet.copy() 
-psd_matrix_gap_regularise = psd_wavelet.copy()
-
-cov_matrix_gap_wavelet_regularise[:, index_time_start_wavelet_bin:index_time_end_wavelet_bin] = np.nan
-psd_matrix_gap_regularise[:, index_time_start_wavelet_bin:index_time_end_wavelet_bin] = np.nan
-
-h_wavelet_gap_regularise = h_wavelet_gap.copy()
-h_wavelet_gap_regularise[:, index_time_start_wavelet_bin:index_time_end_wavelet_bin] = np.nan
-
-
-SNR2_estmated_gaps_regularised_wavelet = np.nansum((h_wavelet_gap_regularise*h_wavelet_gap_regularise) / cov_matrix_gap_wavelet_regularise)
-SNR2_estmated_gaps_psd_regularised_wavelet = np.nansum((h_wavelet_gap_regularise*h_wavelet_gap_regularise) / psd_matrix_gap_regularise)
-print("estimated SNR with gaps using estimated wavelet covariance, regularising", SNR2_estmated_gaps_regularised_wavelet**(1/2))
-print("estimated SNR with gaps using psd matrix with time bins cut out (gap), regularising", SNR2_estmated_gaps_psd_regularised_wavelet**(1/2))
+data_set_wavelet_stitched = noise_wavelet_stitched + h_approx_stitched_data 
 breakpoint()
