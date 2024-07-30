@@ -9,7 +9,7 @@ from pywavelet.data import Data
 from pywavelet.psd import evolutionary_psd_from_stationary_psd
 from pywavelet.transforms.types import FrequencySeries
 from pywavelet.utils.lisa import waveform, zero_pad
-from noise_curves import noise_PSD_AE
+from noise_curves import noise_PSD_AE, CornishPowerSpectralDensity
 
 from gap_funcs import gap_routine, get_Cov, regularise_matrix
 np.random.seed(1234)
@@ -38,7 +38,7 @@ a_true = 1e-21
 f_true = 3e-3
 fdot_true = 1e-8
 
-TDI = "TDI1"
+TDI = "Cornish"
 start_window = 4
 end_window = 6
 lobe_length = 1
@@ -65,8 +65,10 @@ t_pad = np.arange(0,len(h_t_pad)*delta_t, delta_t)
 
 h_true_f = np.fft.rfft(h_t_pad)
 freq = np.fft.rfftfreq(N, delta_t); freq[0] = freq[1]
-PSD = noise_PSD_AE(freq, TDI = TDI)
-
+if TDI == "TDI1" or TDI == "TDI2":
+    PSD = noise_PSD_AE(freq, TDI = TDI)
+else:
+    PSD = CornishPowerSpectralDensity(freq)
 SNR2 = inner_prod(
     h_true_f, h_true_f, PSD, delta_t, N
 )  # Compute optimal matched filtering SNR
@@ -103,7 +105,10 @@ w_t = gap_routine(t_pad, start_window = 4, end_window = 6, lobe_length = 1, delt
 freq_bins_pos_neg = np.fft.fftshift(np.fft.fftfreq(len(w_t), delta_t))
 freq_bins_pos_neg[N//2] = freq_bins_pos_neg[N//2 + 1]
 
-PSD_pos_neg = noise_PSD_AE(freq_bins_pos_neg, TDI = TDI)
+if TDI == "TDI1" or TDI == "TDI2":
+    PSD_pos_neg = noise_PSD_AE(freq_bins_pos_neg, TDI = TDI)
+else:
+    PSD_pos_neg = CornishPowerSpectralDensity(freq_bins_pos_neg)
 
 
 delta_f = freq[2] - freq[1]
@@ -141,8 +146,15 @@ print("SNR when there are gaps in the frequency domain using regularised matrix:
 print("SNR when there are no gaps in the frequency domain:", SNR2_no_gaps**(1/2))
 
 os.chdir('Data/')
-np.save("Cov_Matrix_analytical_gap.npy", Cov_Matrix_Gated)
-np.save("Cov_Matrix_analytical_inv_regularised", Cov_Matrix_Gated_Inv_Regularised)
+if TDI == "TDI1":
+    np.save("Cov_Matrix_analytical_gap_TDI1.npy", Cov_Matrix_Gated)
+    np.save("Cov_Matrix_analytical_inv_regularised_TDI1.npy", Cov_Matrix_Gated_Inv_Regularised)
+elif TDI == "TDI2":
+    np.save("Cov_Matrix_analytical_gap_TDI2.npy", Cov_Matrix_Gated)
+    np.save("Cov_Matrix_analytical_inv_regularised_TDI2.npy", Cov_Matrix_Gated_Inv_Regularised)
+else:
+    np.save("Cov_Matrix_analytical_gap_Cornish.npy", Cov_Matrix_Gated)
+    np.save("Cov_Matrix_analytical_inv_regularised_Cornish.npy", Cov_Matrix_Gated_Inv_Regularised)
 
 
 

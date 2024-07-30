@@ -103,4 +103,3 @@ print("SNR when there are no gaps in the frequency domain", SNR2_no_gaps**0.5)
 np.save("Data/Cov_Matrix_estm_gap.npy", cov_matrix_freq_gap)
 np.save("Data/Cov_Matrix_estm_inv_regularised.npy", cov_matrix_freq_gap_regularised_inv)
 
-# Actually... could I just take the PSD matrix and cut out the values in the time domain? 
