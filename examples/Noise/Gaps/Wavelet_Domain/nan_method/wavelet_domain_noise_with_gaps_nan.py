@@ -79,7 +79,7 @@ end_window = 6
 lobe_length = 1
 
 # Nf = 8 works
-Nf = 64
+Nf = 16
 
 tmax = 10 * 60 * 60  # Final time
 fs = 2 * f_true  # Sampling rate
@@ -194,13 +194,48 @@ print("Using stitched together data stream with gaps, we find SNR = ", np.sqrt(S
 
 # Can I do the same thing with noise? 
 
+np.random.seed(123)
+
 noise_f_iter = np.random.normal(0,np.sqrt(variance_noise_f))  + 1j * np.random.normal(0,np.sqrt(variance_noise_f)) 
 noise_f_iter[0] = np.sqrt(2)*noise_f_iter[0].real
 noise_f_iter[-1] = np.sqrt(2)*noise_f_iter[-1].real
-
 noise_t = np.fft.irfft(noise_f_iter)
 
 noise_wavelet_stitched, _ = stitch_together_data_wavelet(w_t, t_pad, noise_t, Nf, delta_t, start_window, end_window)
 
-data_set_wavelet_stitched = noise_wavelet_stitched + h_approx_stitched_data 
-breakpoint()
+data_set_wavelet_stitched = h_approx_stitched_data + 1*noise_wavelet_stitched 
+
+# Let's try to estimate likelihood by generating a load of signals, gapping them and computing the likelihood 
+
+def likelihood_gap(data_wavelet, template_wavelet, psd_matrix):
+    return -0.5 * np.nansum ( (data_wavelet - template_wavelet)**2 / psd_matrix)
+
+precision = a_true / SNR2_original_data_gaps**(1/2)
+n = 5
+a_range = np.linspace(a_true - n*precision, a_true + n*precision, 200)
+
+if a_true not in a_range:
+    a_range = np.sort(np.insert(a_range, 0, a_true))
+
+llike_vec = []
+for a_val in a_range:
+    h_prop = waveform(a_val, f_true, fdot_true, t)
+    taper_signal = tukey(len(h_prop), alpha = 0.0)
+    h_prop_pad = zero_pad(h_prop*taper_signal)
+    # h_prop_f = np.fft.rfft(h_prop_pad)
+    # h_prop_f_FreqSeries = FrequencySeries(h_prop_f, freq=freq)
+    # h_wavelet = from_freq_to_wavelet(h_prop_f_FreqSeries, Nf = Nf)
+
+    h_prop_wavelet,_ = stitch_together_data_wavelet(w_t, t_pad, h_prop_pad, Nf, delta_t, start_window, end_window)
+
+    llike_val = -0.5 * np.nansum ( ((data_set_wavelet_stitched - h_prop_wavelet)**2) / Wavelet_Matrix_with_nans) 
+    llike_vec.append(llike_val)
+
+
+llike_vec_array = np.array(llike_vec)
+plt.plot(a_range, np.exp(llike_vec_array), '*')
+plt.plot(a_range, np.exp(llike_vec_array))
+plt.xlabel(r'Amplitude values')
+plt.ylabel(r'Likelihood')
+plt.title(r'Likelihood -- With noise and Nf = {}'.format(Nf))
+plt.show()
