@@ -1,12 +1,9 @@
 import os
 
 import numpy as np
-from corner import corner
 from scipy.signal.windows import tukey
-from tqdm import tqdm
 
 from numpy.random import normal
-import pytest
 
 from pywavelet.data import Data
 from pywavelet.psd import evolutionary_psd_from_stationary_psd

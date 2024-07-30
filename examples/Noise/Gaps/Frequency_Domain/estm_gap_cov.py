@@ -65,7 +65,7 @@ cov_matrix_stat = np.linalg.inv(np.diag(2*variance_noise_f))
 # ====================== ESTIMATE THE NOISE COVARIANCE MATRIX ==============================
 print("Estimating the gated covariance matrix")
 noise_f_gap_vec = []
-for i in tqdm(range(0,100000)):
+for i in tqdm(range(0,5000)):
     np.random.seed(i)
     noise_f_iter = np.random.normal(0,np.sqrt(variance_noise_f))  + 1j * np.random.normal(0,np.sqrt(variance_noise_f)) 
     noise_f_iter[0] = np.sqrt(2)*noise_f_iter[0].real
@@ -102,3 +102,5 @@ print("SNR when there are no gaps in the frequency domain", SNR2_no_gaps**0.5)
 # Save the data
 np.save("Data/Cov_Matrix_estm_gap.npy", cov_matrix_freq_gap)
 np.save("Data/Cov_Matrix_estm_inv_regularised.npy", cov_matrix_freq_gap_regularised_inv)
+
+# Actually... could I just take the PSD matrix and cut out the values in the time domain? 
