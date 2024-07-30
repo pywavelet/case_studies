@@ -7,7 +7,7 @@ from tqdm import tqdm
 
 from pywavelet.data import Data
 from pywavelet.psd import evolutionary_psd_from_stationary_psd
-from pywavelet.transforms.types import FrequencySeries
+from pywavelet.transforms.types import FrequencySeries, TimeSeries
 from pywavelet.transforms.to_wavelets import (from_freq_to_wavelet)
 from pywavelet.transforms.from_wavelets import (from_wavelet_to_time)
 from pywavelet.utils.lisa import waveform,  zero_pad
@@ -15,7 +15,6 @@ from pywavelet.plotting import plot_wavelet_grid
 import matplotlib.pyplot as plt
 
 sys.path.append("../Frequency_Domain/")
-from gap_funcs import gap_routine 
 from noise_curves import noise_PSD_AE
 
 np.random.seed(1234)
@@ -25,28 +24,20 @@ def gap_routine_nan(t, start_window, end_window, delta_t = 10):
 
     start_window *= ONE_HOUR          # Define start of gap
     end_window *= ONE_HOUR          # Define end of gap
-    lobe_length *= ONE_HOUR          # Define length of cosine lobes
 
-    alpha_gaps = 0 
-    
-    window = tukey(window_length,alpha_gaps)   # Construct window
+    N = len(t) 
 
-    new_window = []  # Initialise with empty vector
+    nan_window = []  # Initialise with empty vector
     j=0  
-    for i in range(0,len(t)):   # loop index i through length of t
+    for i in range(0,N):   # loop index i through length of t
         if t[i] > (start_window) and (t[i] < end_window):  # if t within gap segment
-            new_window.append(np.nan)  # add windowing function to vector of ones.
+            nan_window.append(np.nan)  # add nan value (no data)
             j+=1  # incremement 
         else:                   # if t not within the gap segment
-            new_window.append(1)  # Just add a one.
+            nan_window.append(1)  # Just add a one.
             j=0
         
-
-    alpha_full = 0.0
-    total_window = tukey(len(new_window), alpha = alpha_full)
-
-    new_window *= total_window
-    return new_window
+    return nan_window
 
 def zero_pad(data):
     """
@@ -103,7 +94,7 @@ N = int(
 )  # Round length of time series to a power of two.
 # Length of time series
 h_t = waveform(a_true, f_true, fdot_true, t)
-taper_signal = tukey(len(h_t), alpha = 0.2)
+taper_signal = tukey(len(h_t), alpha = 0.0)
 h_t_pad = zero_pad(h_t*taper_signal)
 
 t_pad = np.arange(0,len(h_t_pad)*delta_t, delta_t)
@@ -120,7 +111,6 @@ print("SNR of source", np.sqrt(SNR2))
 #  =============== WAVELET DOMAIN ========================
 signal_f_series = FrequencySeries(data=h_true_f, freq=freq)
 psd = FrequencySeries(data = PSD, freq = freq)
-
 
 kwgs = dict(
     Nf=Nf,
@@ -172,22 +162,24 @@ print("SNR in wavelet domain is", SNR2_wavelet**(1/2))
 variance_noise_f = N * PSD/(4*delta_t)   # Compute variance in frequency domain (pos freq)
 
 # Gaps in the frequency domain. 
-w_t = gap_routine(t_pad, start_window = start_window, end_window = end_window, delta_t = delta_t)
+w_t = gap_routine_nan(t_pad, start_window = start_window, end_window = end_window, delta_t = delta_t)
 
 h_pad_w = w_t * h_t_pad 
 
-# plt.plot(t_pad/60/60, h_pad_w);
-# plt.plot(t_pad/60/60,np.max(h_pad_w)*w_t, label = 'Window', c='red')
-# plt.xlabel(r'Time t [Hrs]')
-# plt.ylabel(r'Signal')
-# plt.title('Gaps')
-# plt.grid()
-# plt.savefig("plots/waveform.pdf",bbox_inches = "tight")
-# plt.clf()
-h_pad_fft = np.fft.rfft(h_pad_w) 
+breakpoint()
+plt.plot(t_pad/60/60, h_pad_w);
+plt.xlabel(r'Time t [Hrs]')
+plt.ylabel(r'Signal')
+plt.title('Gaps')
+plt.grid()
+plt.savefig("plots/waveform_nan.pdf",bbox_inches = "tight")
+plt.clf()
+breakpoint()
+# h_pad_fft = np.fft.rfft(h_pad_w) 
 
-signal_gap_f = FrequencySeries(h_pad_fft, freq = freq)
-h_wavelet_gap = Data.from_frequencyseries(signal_gap_f, **kwgs).wavelet
+# signal_gap_f = FrequencySeries(h_pad_fft, freq = freq)
+signal_gap_t = TimeSeries(h_pad_w, time = t)
+h_wavelet_gap = Data.from_timeseries(signal_gap_t, **kwgs).wavelet
 
 # Check, is this working?
 
