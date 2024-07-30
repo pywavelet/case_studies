@@ -179,7 +179,7 @@ breakpoint()
 
 # signal_gap_f = FrequencySeries(h_pad_fft, freq = freq)
 signal_gap_t = TimeSeries(h_pad_w, time = t)
-h_wavelet_gap = Data.from_timeseries(signal_pad_w, **kwgs).wavelet
+h_wavelet_gap = Data.from_timeseries(signal_gap_t, **kwgs).wavelet
 
 # Check, is this working?
 
