@@ -1,56 +1,27 @@
 import os
 import sys
 import numpy as np
-from corner import corner
 from scipy.signal.windows import tukey
 from tqdm import tqdm
 
-from numpy.random import normal
 
 from pywavelet.data import Data
 from pywavelet.psd import evolutionary_psd_from_stationary_psd
 from pywavelet.transforms.types import FrequencySeries
 from pywavelet.transforms.to_wavelets import (from_freq_to_wavelet)
 from pywavelet.transforms.from_wavelets import (from_wavelet_to_time)
-
 from pywavelet.utils.lisa import waveform,  zero_pad
-
+from pywavelet.plotting import plot_wavelet_grid
 import matplotlib.pyplot as plt
 
 sys.path.append("../Frequency_Domain/")
-from gap_funcs import gap_routine, get_Cov, noise_PSD_AE
+from gap_funcs import gap_routine 
+from noise_curves import noise_PSD_AE
+
 np.random.seed(1234)
 
 
-
-def PowerSpectralDensity(f):
-    """
-    PSD obtained from: https://arxiv.org/pdf/1803.01944.pdf
-    Removed galactic confusion noise. Non stationary effect.
-    """
-
-    L = 2.5 * 10**9  # Length of LISA arm
-    f0 = 19.09 * 10**-3
-
-    Poms = ((1.5 * 10**-11) ** 2) * (
-        1 + ((2 * 10**-3) / f) ** 4
-    )  # Optical Metrology Sensor
-    Pacc = (
-        (3 * 10**-15) ** 2
-        * (1 + (4 * 10**-3 / (10 * f)) ** 2)
-        * (1 + (f / (8 * 10**-3)) ** 4)
-    )  # Acceleration Noise
-
-    PSD = (
-        (10 / (3 * L**2))
-        * (Poms + (4 * Pacc) / ((2 * np.pi * f)) ** 4)
-        * (1 + 0.6 * (f / f0) ** 2)
-    )  # PSD
-
-    return PSD
-
-
-def __zero_pad(data):
+def zero_pad(data):
     """
     This function takes in a vector and zero pads it so it is a power of two.
     We do this for the O(Nlog_{2}N) cost when we work in the frequency domain.
@@ -58,31 +29,6 @@ def __zero_pad(data):
     N = len(data)
     pow_2 = np.ceil(np.log2(N))
     return np.pad(data, (0, int((2**pow_2) - N)), "constant")
-
-
-def FFT(waveform):
-    """
-    Here we taper the signal, pad and then compute the FFT. We remove the zeroth frequency bin because
-    the PSD (for which the frequency domain waveform is used with) is undefined at f = 0.
-    """
-    N = len(waveform)
-    taper = tukey(N, 0.1)
-    waveform_w_pad = __zero_pad(waveform * taper)
-    return np.fft.rfft(waveform_w_pad)
-
-
-def freq_PSD(waveform_t, delta_t):
-    """
-    Here we take in a waveform and sample the correct fourier frequencies and output the PSD. There is no
-    f = 0 frequency bin because the PSD is undefined there.
-    """
-    n_t = len(__zero_pad(waveform_t))
-    freq = np.fft.rfftfreq(n_t, delta_t)
-    freq[0] = freq[1] # redefining zeroth frequency to stop PSD -> infinity
-    PSD = PowerSpectralDensity(freq)
-
-    return freq, PSD
-
 
 def inner_prod(sig1_f, sig2_f, PSD, delta_t, N_t):
     # Compute inner product. Useful for likelihood calculations and SNRs.
@@ -102,28 +48,20 @@ def waveform(a, f, fdot, t, eps=0):
     return a * (np.sin((2 * np.pi) * (f * t + 0.5 * fdot * t**2)))
 
 
-def llike(data_wavelet, signal_wavelet, psd_wavelet):
-    """
-    Computes log likelihood
-    Assumption: Known PSD otherwise need additional term
-    Inputs:
-    data in frequency domain
-    Proposed signal in frequency domain
-    Variance of noise
-    """
-    inn_prod_wavelet = np.nansum(((data_wavelet - signal_wavelet) ** 2) / psd_wavelet)
-    return -0.5 * inn_prod_wavelet
-
-# Set true parameters. These are the parameters we want to estimate using MCMC.
-
 a_true = 1e-21
 f_true = 3e-3
 fdot_true = 1e-8
 
+TDI = "TDI1"
+
+start_window = 4
+end_window = 6
+lobe_length = 1.5
+
 tmax = 10 * 60 * 60  # Final time
 fs = 2 * f_true  # Sampling rate
 delta_t = np.floor(
-    0.1 / fs
+    0.4 / fs
 )  # Sampling interval -- largely oversampling here.
 
 t = np.arange(
@@ -135,7 +73,6 @@ N = int(
 )  # Round length of time series to a power of two.
 # Length of time series
 h_t = waveform(a_true, f_true, fdot_true, t)
-
 taper_signal = tukey(len(h_t), alpha = 0.2)
 h_t_pad = zero_pad(h_t*taper_signal)
 
@@ -143,13 +80,36 @@ t_pad = np.arange(0,len(h_t_pad)*delta_t, delta_t)
 
 h_true_f = np.fft.rfft(h_t_pad)
 freq = np.fft.rfftfreq(N, delta_t); freq[0] = freq[1]
-PSD = noise_PSD_AE(freq, TDI = "TDI1")
-# freq, PSD = freq_PSD(t, delta_t)  # Extract frequency bins and PSD.
+PSD = noise_PSD_AE(freq, TDI = TDI)
 
 SNR2 = inner_prod(
     h_true_f, h_true_f, PSD, delta_t, N
 )  # Compute optimal matched filtering SNR
 print("SNR of source", np.sqrt(SNR2))
+
+#  =============== WAVELET DOMAIN ========================
+signal_f_series = FrequencySeries(data=h_true_f, freq=freq)
+psd = FrequencySeries(data = PSD, freq = freq)
+
+
+kwgs = dict(
+    Nf=32,
+)
+
+
+h_wavelet = Data.from_frequencyseries(signal_f_series, **kwgs).wavelet
+psd_wavelet = evolutionary_psd_from_stationary_psd(
+                                                    psd=psd.data,
+                                                    psd_f=psd.freq,
+                                                    f_grid=h_wavelet.freq,
+                                                    t_grid=h_wavelet.time,
+                                                    dt=delta_t,
+                                                )
+
+Wavelet_Matrix = psd_wavelet.data
+
+SNR2_wavelet = np.nansum((h_wavelet*h_wavelet) / psd_wavelet)
+print("SNR in wavelet domain is", SNR2_wavelet**(1/2))
 
 
 # Compute things in the wavelet domain
@@ -157,7 +117,7 @@ print("SNR of source", np.sqrt(SNR2))
 signal_f_series = FrequencySeries(data=h_true_f, freq=freq)
 psd = FrequencySeries(data = PSD, freq = freq)
 
-Nf = 64
+Nf = 32
 Nt = N//Nf
 print("Length of signal: ",N)
 print("Wavelet bins in frequency= ",Nf)
@@ -259,22 +219,6 @@ for i in range(N_f):
 
 # add noise to wavelet coefficients, (easier to see)
 
-
-noise = abs(np.random.normal(0,1e-30, (N_f,N_t)))
-h_noise_no_gap = abs(h_wavelet.data) #+ noise
-h_noise_gap = abs(h_wavelet_gap.data) #+ noise
-
-
-# for i in range(N_f):
-#     for j in range(N_t):
-#         noise = np.random.normal(0,1e-24)
-#         h_noise_no_gap[i,j] = h_wavelet.data[i,j] + noise
-#         h_noise_gap[i,j] = h_wavelet_gap.data[i,j] + noise 
-#         cov_matrix_gap_wavelet[i, j] = np.cov(noise_gap_wavelet_matrix[:, i, j], rowvar=False)
-
-from pywavelet.plotting import plot_wavelet_grid
-
-import matplotlib.pyplot as plt
 fig,ax = plt.subplots(2,2, figsize = (16,8))
 
 kwargs_cov_matrix = {"title":"Estimated wavelet covariance matrix"}
@@ -332,8 +276,30 @@ plt.clf()
 
 w_t = gap_routine(t_pad, start_window = 4, end_window = 6, lobe_length = 1, delta_t = delta_t)
 
-SNR2_estmated_gaps_wavelet = np.nansum((h_wavelet_gap*h_wavelet_gap) / cov_matrix_gap_wavelet)
 SNR2_estmated_no_gaps_wavelet = np.nansum((h_wavelet*h_wavelet) / cov_matrix_wavelet)
+SNR2_estmated_gaps_wavelet = np.nansum((h_wavelet_gap*h_wavelet_gap) / cov_matrix_gap_wavelet)
 
 print("estimated SNR with gaps using estimated gated wavelet covariance", SNR2_estmated_gaps_wavelet**(1/2))
 print("estimated SNR with no gaps using estimated wavelet covariance", SNR2_estmated_no_gaps_wavelet**(1/2))
+
+# Actually... could I just take the generated matrix and remove elements?
+
+index_time_start_wavelet_bin = np.argwhere(noise_gap_wavelet.time.data /60/60 > start_window)[0][0]
+index_time_end_wavelet_bin = np.argwhere(noise_gap_wavelet.time.data /60/60  < end_window)[-1][0]
+
+
+cov_matrix_gap_wavelet_regularise = cov_matrix_gap_wavelet.copy() 
+psd_matrix_gap_regularise = psd_wavelet.copy()
+
+cov_matrix_gap_wavelet_regularise[:, index_time_start_wavelet_bin:index_time_end_wavelet_bin] == np.nan
+psd_matrix_gap_regularise[:, index_time_start_wavelet_bin:index_time_end_wavelet_bin] == np.nan
+
+h_wavelet_gap_regularise = h_wavelet_gap.copy()
+h_wavelet_gap_regularise[:, index_time_start_wavelet_bin:index_time_end_wavelet_bin] == np.nan
+
+
+SNR2_estmated_gaps_regularised_wavelet = np.nansum((h_wavelet_gap_regularise*h_wavelet_gap_regularise) / cov_matrix_gap_wavelet_regularise)
+SNR2_estmated_gaps_psd_regularised_wavelet = np.nansum((h_wavelet_gap_regularise*h_wavelet_gap_regularise) / psd_matrix_gap_regularise)
+print("estimated SNR with gaps using estimated wavelet covariance, regularising", SNR2_estmated_gaps_regularised_wavelet**(1/2))
+print("estimated SNR with gaps using psd matrix with time bins cut out (gap), regularising", SNR2_estmated_gaps_psd_regularised_wavelet**(1/2))
+breakpoint()
