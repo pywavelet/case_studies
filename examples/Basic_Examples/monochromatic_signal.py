@@ -14,7 +14,7 @@ f0 = 20
 T = 1000
 A = 2.0
 PSD_AMP = 1e-2
-Nf = 512
+Nf = 510
 
 dt = 0.5 / (2 * f0)  # Shannon's sampling theorem, set dt < 1/2*highest_freq
 t = np.arange(0, T, dt)  # Time array
@@ -22,6 +22,7 @@ t = np.arange(0, T, dt)  # Time array
 t = t[: 2 ** int(np.log2(len(t)))]
 T = len(t) * dt
 ND = len(t)
+breakpoint()
 
 y = A * np.sin(2 * np.pi * f0 * t)  # Signal waveform we wish to test
 window = tukey(len(y), 0.0) # Essential if you want to remove leakage
