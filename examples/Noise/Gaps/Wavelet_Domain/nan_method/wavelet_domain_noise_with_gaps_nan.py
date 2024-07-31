@@ -15,7 +15,7 @@ from pywavelet.plotting import plot_wavelet_grid
 import matplotlib.pyplot as plt
 
 sys.path.append("../../Frequency_Domain/")
-from noise_curves import noise_PSD_AE
+from noise_curves import noise_PSD_AE, CornishPowerSpectralDensity
 from stitch_data_set import stitch_together_data_wavelet
 
 np.random.seed(1234)
@@ -72,11 +72,11 @@ f_true = 3e-3
 fdot_true = 1e-8
 
 TDI = "TDI1"
+# TDI = "Cornish"
+# if TDI == "Cornish": a_true = 1e-19
 
-
-start_window = 4
-end_window = 6
-lobe_length = 1
+start_gap = 4
+end_gap = 6
 
 # Nf = 8 works
 Nf = 16
@@ -103,7 +103,10 @@ t_pad = np.arange(0,len(h_t_pad)*delta_t, delta_t)
 
 h_true_f = np.fft.rfft(h_t_pad)
 freq = np.fft.rfftfreq(N, delta_t); freq[0] = freq[1]
-PSD = noise_PSD_AE(freq, TDI = TDI)
+if TDI == "TDI1" or TDI == "TDI2":
+    PSD = noise_PSD_AE(freq, TDI = TDI)
+else:
+    PSD = CornishPowerSpectralDensity(freq)
 
 SNR2 = inner_prod(
     h_true_f, h_true_f, PSD, delta_t, N
@@ -164,7 +167,7 @@ print("SNR in wavelet domain is", SNR2_wavelet**(1/2))
 variance_noise_f = N * PSD/(4*delta_t)   # Compute variance in frequency domain (pos freq)
 
 # Gaps in the frequency domain. 
-w_t = gap_routine_nan(t_pad, start_window = start_window, end_window = end_window, delta_t = delta_t)
+w_t = gap_routine_nan(t_pad, start_window = start_gap, end_window = end_gap, delta_t = delta_t)
 
 h_pad_w = w_t * h_t_pad 
 
@@ -176,7 +179,8 @@ plt.grid()
 plt.savefig("../plots/waveform_nan.pdf",bbox_inches = "tight")
 plt.clf()
 
-h_approx_stitched_data, mask = stitch_together_data_wavelet(w_t, t_pad, h_pad_w, Nf, delta_t, start_window, end_window)
+h_approx_stitched_data, mask = stitch_together_data_wavelet(w_t, t_pad, h_pad_w, Nf, delta_t, 
+                                                            start_gap, end_gap)
 # ===================== Old data set, force to have nans ===========================
 
 h_wavelet_matrix = h_wavelet.data
@@ -201,7 +205,7 @@ noise_f_iter[0] = np.sqrt(2)*noise_f_iter[0].real
 noise_f_iter[-1] = np.sqrt(2)*noise_f_iter[-1].real
 noise_t = np.fft.irfft(noise_f_iter)
 
-noise_wavelet_stitched, _ = stitch_together_data_wavelet(w_t, t_pad, noise_t, Nf, delta_t, start_window, end_window)
+noise_wavelet_stitched, _ = stitch_together_data_wavelet(w_t, t_pad, noise_t, Nf, delta_t, start_gap, end_gap, windowing = True)
 
 data_set_wavelet_stitched = h_approx_stitched_data + 1*noise_wavelet_stitched 
 
@@ -226,7 +230,7 @@ for a_val in a_range:
     # h_prop_f_FreqSeries = FrequencySeries(h_prop_f, freq=freq)
     # h_wavelet = from_freq_to_wavelet(h_prop_f_FreqSeries, Nf = Nf)
 
-    h_prop_wavelet,_ = stitch_together_data_wavelet(w_t, t_pad, h_prop_pad, Nf, delta_t, start_window, end_window)
+    h_prop_wavelet,_ = stitch_together_data_wavelet(w_t, t_pad, h_prop_pad, Nf, delta_t, start_gap, end_gap)
 
     llike_val = -0.5 * np.nansum ( ((data_set_wavelet_stitched - h_prop_wavelet)**2) / Wavelet_Matrix_with_nans) 
     llike_vec.append(llike_val)
@@ -235,7 +239,28 @@ for a_val in a_range:
 llike_vec_array = np.array(llike_vec)
 plt.plot(a_range, np.exp(llike_vec_array), '*')
 plt.plot(a_range, np.exp(llike_vec_array))
+plt.axvline(x = a_true, c = 'red', linestyle = '--', label = "truth")
+plt.legend()
 plt.xlabel(r'Amplitude values')
 plt.ylabel(r'Likelihood')
-plt.title(r'Likelihood -- With noise and Nf = {}'.format(Nf))
-plt.show()
+# plt.yticks([])
+if TDI == "TDI1" or TDI == "TDI2":
+    plt.title(r'Likelihood -- With {} noise and Nf = {}'.format(TDI, Nf))
+else:
+    plt.title(r'Likelihood -- With {} noise and Nf = {}'.format("Cornish", Nf))
+
+# Extra processing
+
+h_prop = waveform(a_true, f_true, fdot_true, t)
+taper_signal = tukey(len(h_prop), alpha = 0.0)
+h_prop_pad = zero_pad(h_prop*taper_signal)
+
+h_prop_wavelet,_ = stitch_together_data_wavelet(w_t, t_pad, h_prop_pad, Nf, delta_t, start_gap, end_gap)
+
+llike_val = -0.5 * np.nansum ( ((noise_wavelet_stitched)**2) / Wavelet_Matrix_with_nans) 
+
+print("log_like value for noise = ", llike_val)
+print("Number of data points in time, N = ", N)
+
+breakpoint()
+

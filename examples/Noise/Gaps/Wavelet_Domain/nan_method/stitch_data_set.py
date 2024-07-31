@@ -1,17 +1,22 @@
 import numpy as np
+from scipy.signal.windows import tukey
 from pywavelet.transforms.types import FrequencySeries, TimeSeries
 from pywavelet.transforms.to_wavelets import (from_freq_to_wavelet, from_time_to_wavelet)
 from pywavelet.utils.lisa import zero_pad
 
 
-def stitch_together_data_wavelet(w_t, t, h_pad_w, Nf, delta_t, start_window, end_window):
+def stitch_together_data_wavelet(w_t, t, h_pad_w, Nf, delta_t, start_window, end_window, windowing = False):
     start_index_gap = np.argwhere(np.isnan(w_t) == True)[0][0]
     end_index_gap = np.argwhere(np.isnan(w_t) == True)[-1][0]
 
     #================= PROCESS CHUNK 1 ===================
     kwgs_chunk_1 = dict(Nf = Nf)
     h_chunk_1 = h_pad_w[0:start_index_gap]
-    h_chunk_1_pad = zero_pad(h_chunk_1)
+    if windowing == True:
+        taper = tukey(len(h_chunk_1),0.1)
+    else:
+        taper = tukey(len(h_chunk_1),0)
+    h_chunk_1_pad = zero_pad(h_chunk_1*taper)
     ND_1 = len(h_chunk_1_pad)
     Nf_1 = Nf
     kwgs_chunk_2 = dict(Nf = Nf_1)
@@ -22,7 +27,11 @@ def stitch_together_data_wavelet(w_t, t, h_pad_w, Nf, delta_t, start_window, end
 
     #================= PROCESS CHUNK 2 ===================
     h_chunk_2 = h_pad_w[end_index_gap+1:]
-    h_chunk_2_pad = zero_pad(h_chunk_2)
+    if windowing == True:
+        taper = tukey(len(h_chunk_2),0.1)
+    else:
+        taper = tukey(len(h_chunk_2),0)
+    h_chunk_2_pad = zero_pad(h_chunk_2*taper)
     ND_2 = len(h_chunk_2_pad)
     Nf_2 = Nf
     kwgs_chunk_2 = dict(Nf = Nf_2)
