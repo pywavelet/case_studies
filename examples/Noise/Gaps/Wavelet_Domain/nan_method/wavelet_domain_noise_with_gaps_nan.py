@@ -108,6 +108,22 @@ if TDI == "TDI1" or TDI == "TDI2":
 else:
     PSD = CornishPowerSpectralDensity(freq)
 
+freq  = np.arange(1e-5, 5e-1, 1e-7)
+PSD_TDI1 = noise_PSD_AE(freq,TDI = "TDI1")
+PSD_TDI2 = noise_PSD_AE(freq,TDI = "TDI2")
+PSD_Cornish = CornishPowerSpectralDensity(freq)
+
+plt.loglog(freq, PSD_TDI1, label = "TDI1")
+plt.loglog(freq, PSD_TDI2, label = "TDI2")
+plt.loglog(freq, PSD_Cornish, label = "Cornish")
+plt.legend()
+
+plt.title("Comparison, PSDs")
+plt.xlabel(r" Frequency [Hz]")
+plt.ylabel(r"Magnitude (seconds)")
+plt.grid()
+plt.show()
+quit()
 SNR2 = inner_prod(
     h_true_f, h_true_f, PSD, delta_t, N
 )  # Compute optimal matched filtering SNR
@@ -179,7 +195,7 @@ plt.grid()
 plt.savefig("../plots/waveform_nan.pdf",bbox_inches = "tight")
 plt.clf()
 
-h_approx_stitched_data, mask = stitch_together_data_wavelet(w_t, t_pad, h_t_pad, Nf, delta_t, start_gap, end_gap, windowing = True, alpha = 0.0, filter = True)
+h_approx_stitched_data, mask = stitch_together_data_wavelet(w_t, t_pad, h_t_pad, Nf, delta_t, start_gap, end_gap, windowing = True, alpha = 0.05, filter = True)
 # ===================== Old data set, force to have nans ===========================
 
 h_wavelet_matrix = h_wavelet.data
@@ -204,7 +220,7 @@ noise_f_iter[0] = np.sqrt(2)*noise_f_iter[0].real
 noise_f_iter[-1] = np.sqrt(2)*noise_f_iter[-1].real
 noise_t = np.fft.irfft(noise_f_iter)
 
-noise_wavelet_stitched, _ = stitch_together_data_wavelet(w_t, t_pad, noise_t, Nf, delta_t, start_gap, end_gap, windowing = True, alpha = 0.0, filter = True)
+noise_wavelet_stitched, _ = stitch_together_data_wavelet(w_t, t_pad, noise_t, Nf, delta_t, start_gap, end_gap, windowing = True, alpha = 0.05, filter = True)
 
 data_set_wavelet_stitched = h_approx_stitched_data + 1*noise_wavelet_stitched 
 
@@ -229,7 +245,7 @@ for a_val in a_range:
     # h_prop_f_FreqSeries = FrequencySeries(h_prop_f, freq=freq)
     # h_wavelet = from_freq_to_wavelet(h_prop_f_FreqSeries, Nf = Nf)
 
-    h_prop_wavelet,_ = stitch_together_data_wavelet(w_t, t_pad, h_prop_pad, Nf, delta_t, start_gap, end_gap, windowing = True, alpha = 0.0, filter = True)
+    h_prop_wavelet,_ = stitch_together_data_wavelet(w_t, t_pad, h_prop_pad, Nf, delta_t, start_gap, end_gap, windowing = True, alpha = 0.05, filter = True)
 
     llike_val = -0.5 * np.nansum ( ((data_set_wavelet_stitched - h_prop_wavelet)**2) / Wavelet_Matrix_with_nans) 
     llike_vec.append(llike_val)
