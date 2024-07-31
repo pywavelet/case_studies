@@ -71,7 +71,7 @@ a_true = 1e-21
 f_true = 3e-3
 fdot_true = 1e-8
 
-TDI = "TDI1"
+TDI = "TDI2"
 # TDI = "Cornish"
 # if TDI == "Cornish": a_true = 1e-19
 
@@ -179,8 +179,7 @@ plt.grid()
 plt.savefig("../plots/waveform_nan.pdf",bbox_inches = "tight")
 plt.clf()
 
-h_approx_stitched_data, mask = stitch_together_data_wavelet(w_t, t_pad, h_pad_w, Nf, delta_t, 
-                                                            start_gap, end_gap)
+h_approx_stitched_data, mask = stitch_together_data_wavelet(w_t, t_pad, h_t_pad, Nf, delta_t, start_gap, end_gap, windowing = True, alpha = 0.2, filter = True)
 # ===================== Old data set, force to have nans ===========================
 
 h_wavelet_matrix = h_wavelet.data
@@ -205,7 +204,7 @@ noise_f_iter[0] = np.sqrt(2)*noise_f_iter[0].real
 noise_f_iter[-1] = np.sqrt(2)*noise_f_iter[-1].real
 noise_t = np.fft.irfft(noise_f_iter)
 
-noise_wavelet_stitched, _ = stitch_together_data_wavelet(w_t, t_pad, noise_t, Nf, delta_t, start_gap, end_gap, windowing = True)
+noise_wavelet_stitched, _ = stitch_together_data_wavelet(w_t, t_pad, noise_t, Nf, delta_t, start_gap, end_gap, windowing = True, alpha = 0.2, filter = True)
 
 data_set_wavelet_stitched = h_approx_stitched_data + 1*noise_wavelet_stitched 
 
