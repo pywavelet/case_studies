@@ -15,10 +15,10 @@ def stitch_together_data_wavelet(w_t, t, h_pad_w, Nf, delta_t, start_window, end
     h_chunk_1 = h_pad_w[0:start_index_gap]
     if windowing == True:
         taper = tukey(len(h_chunk_1),alpha)
-        h_chunk_1 = bandpass_data(taper * h_chunk_1, 5e-4, 1/delta_t, bandpassing_flag = filter, order = 2) 
+        h_chunk_1 = bandpass_data(taper * h_chunk_1, 7e-4, 1/delta_t, bandpassing_flag = filter, order = 4) 
     else:
         taper = tukey(len(h_chunk_1),0.0)
-        h_chunk_1 = bandpass_data(taper * h_chunk_1, 5e-4, 1/delta_t, bandpassing_flag = filter, order = 2) 
+        h_chunk_1 = bandpass_data(taper * h_chunk_1, 7e-4, 1/delta_t, bandpassing_flag = filter, order = 4) 
 
     h_chunk_1_pad = zero_pad(h_chunk_1*taper)
     ND_1 = len(h_chunk_1_pad)
@@ -33,10 +33,10 @@ def stitch_together_data_wavelet(w_t, t, h_pad_w, Nf, delta_t, start_window, end
     h_chunk_2 = h_pad_w[end_index_gap+1:]
     if windowing == True:
         taper = tukey(len(h_chunk_2),alpha)
-        h_chunk_2 = bandpass_data(taper * h_chunk_2, 5e-4, 1/delta_t, bandpassing_flag = filter, order = 2) 
+        h_chunk_2 = bandpass_data(taper * h_chunk_2, 7e-4, 1/delta_t, bandpassing_flag = filter, order = 4) 
     else:
         taper = tukey(len(h_chunk_2),0.0)
-        h_chunk_2 = bandpass_data(taper * h_chunk_2, 5e-4, 1/delta_t, bandpassing_flag = filter, order = 2) 
+        h_chunk_2 = bandpass_data(taper * h_chunk_2, 7e-4, 1/delta_t, bandpassing_flag = filter, order = 4) 
     h_chunk_2_pad = zero_pad(h_chunk_2*taper)
     ND_2 = len(h_chunk_2_pad)
     Nf_2 = Nf

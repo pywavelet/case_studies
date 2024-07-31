@@ -18,7 +18,7 @@ sys.path.append("../../Frequency_Domain/")
 from noise_curves import noise_PSD_AE, CornishPowerSpectralDensity
 from wavelet_data_utils import stitch_together_data_wavelet, bandpass_data
 
-np.random.seed(1234)
+# np.random.seed(1234)
 
 ONE_HOUR = 60*60
 def gap_routine_nan(t, start_window, end_window, delta_t = 10):
@@ -71,8 +71,8 @@ a_true = 1e-21
 f_true = 3e-3
 fdot_true = 1e-8
 
-TDI = "TDI2"
-# TDI = "Cornish"
+# TDI = "TDI1"
+TDI = "Cornish"
 # if TDI == "Cornish": a_true = 1e-19
 
 start_gap = 4
@@ -179,7 +179,7 @@ plt.grid()
 plt.savefig("../plots/waveform_nan.pdf",bbox_inches = "tight")
 plt.clf()
 
-h_approx_stitched_data, mask = stitch_together_data_wavelet(w_t, t_pad, h_t_pad, Nf, delta_t, start_gap, end_gap, windowing = True, alpha = 0.2, filter = True)
+h_approx_stitched_data, mask = stitch_together_data_wavelet(w_t, t_pad, h_t_pad, Nf, delta_t, start_gap, end_gap, windowing = True, alpha = 0.0, filter = True)
 # ===================== Old data set, force to have nans ===========================
 
 h_wavelet_matrix = h_wavelet.data
@@ -197,14 +197,14 @@ print("Using stitched together data stream with gaps, we find SNR = ", np.sqrt(S
 
 # Can I do the same thing with noise? 
 
-np.random.seed(123)
+# np.random.seed(123)
 
 noise_f_iter = np.random.normal(0,np.sqrt(variance_noise_f))  + 1j * np.random.normal(0,np.sqrt(variance_noise_f)) 
 noise_f_iter[0] = np.sqrt(2)*noise_f_iter[0].real
 noise_f_iter[-1] = np.sqrt(2)*noise_f_iter[-1].real
 noise_t = np.fft.irfft(noise_f_iter)
 
-noise_wavelet_stitched, _ = stitch_together_data_wavelet(w_t, t_pad, noise_t, Nf, delta_t, start_gap, end_gap, windowing = True, alpha = 0.2, filter = True)
+noise_wavelet_stitched, _ = stitch_together_data_wavelet(w_t, t_pad, noise_t, Nf, delta_t, start_gap, end_gap, windowing = True, alpha = 0.0, filter = True)
 
 data_set_wavelet_stitched = h_approx_stitched_data + 1*noise_wavelet_stitched 
 
@@ -229,7 +229,7 @@ for a_val in a_range:
     # h_prop_f_FreqSeries = FrequencySeries(h_prop_f, freq=freq)
     # h_wavelet = from_freq_to_wavelet(h_prop_f_FreqSeries, Nf = Nf)
 
-    h_prop_wavelet,_ = stitch_together_data_wavelet(w_t, t_pad, h_prop_pad, Nf, delta_t, start_gap, end_gap)
+    h_prop_wavelet,_ = stitch_together_data_wavelet(w_t, t_pad, h_prop_pad, Nf, delta_t, start_gap, end_gap, windowing = True, alpha = 0.0, filter = True)
 
     llike_val = -0.5 * np.nansum ( ((data_set_wavelet_stitched - h_prop_wavelet)**2) / Wavelet_Matrix_with_nans) 
     llike_vec.append(llike_val)
