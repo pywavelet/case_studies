@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.signal.windows import tukey
+from scipy.signal import butter, filtfilt
 from pywavelet.transforms.types import FrequencySeries, TimeSeries
 from pywavelet.transforms.to_wavelets import (from_freq_to_wavelet, from_time_to_wavelet)
 from pywavelet.utils.lisa import zero_pad
@@ -85,3 +86,39 @@ def stitch_together_data_wavelet(w_t, t, h_pad_w, Nf, delta_t, start_window, end
     # This is general and is the general structure from time -> freq -> wavelet for given gapped data set
 
     return h_approx_stitched_data, mask
+
+def bandpass_data(rawstrain, f_min_bp, f_max_bp, srate_dt, bandpassing_flag):
+     """
+
+    Bandpass the raw strain between [f_min, f_max] Hz.
+
+    Arguments
+    ---------
+
+    rawstrain: numpy array
+    The raw strain data.
+    f_min_bp: float
+    The lower frequency of the bandpass filter.
+    f_max_bp: float
+    The upper frequency of the bandpass filter.
+    srate_dt: float
+    The sampling rate of the data.
+    bandpassing_flag: bool
+    Whether to apply bandpassing or not.
+
+    Returns
+    -------
+
+    strain: numpy array
+    The bandpassed strain data.
+
+    """
+     if(bandpassing_flag):
+     # Bandpassing section.
+         # Create a fourth order Butterworth bandpass filter between [f_min, f_max] and apply it with the function filtfilt.
+         bb, ab = butter(4, [f_min_bp/(0.5*srate_dt), f_max_bp/(0.5*srate_dt)], btype='band')
+         strain = filtfilt(bb, ab, rawstrain)
+     else:
+         strain = rawstrain
+
+     return strain

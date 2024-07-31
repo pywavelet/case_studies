@@ -248,7 +248,7 @@ if TDI == "TDI1" or TDI == "TDI2":
     plt.title(r'Likelihood -- With {} noise and Nf = {}'.format(TDI, Nf))
 else:
     plt.title(r'Likelihood -- With {} noise and Nf = {}'.format("Cornish", Nf))
-
+plt.show()
 # Extra processing
 
 h_prop = waveform(a_true, f_true, fdot_true, t)
@@ -260,7 +260,7 @@ h_prop_wavelet,_ = stitch_together_data_wavelet(w_t, t_pad, h_prop_pad, Nf, delt
 llike_val = -0.5 * np.nansum ( ((noise_wavelet_stitched)**2) / Wavelet_Matrix_with_nans) 
 
 print("log_like value for noise = ", llike_val)
-print("Number of data points in time, N = ", N)
+print("Number of data points in time, N = ", N/2)
 
 breakpoint()
 
