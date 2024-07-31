@@ -6,30 +6,97 @@ from pywavelet.transforms.to_wavelets import (from_freq_to_wavelet, from_time_to
 from pywavelet.utils.lisa import zero_pad
 
 
-def stitch_together_data_wavelet(w_t, t, h_pad_w, Nf, delta_t, start_window, end_window, windowing = False, alpha = 0, filter = False, **kwargs):
+def stitch_together_data_wavelet(w_t, t, h_pad_w, Nf, delta_t, start_window, 
+                                end_window, windowing = False, alpha = 0, 
+                                filter = False):
+    """
+    Stitch together data segments in the wavelet domain, filling gaps with NaNs.
+
+    This function processes a data stream that is divided into chunks due to gaps. 
+    It converts each chunk into the wavelet domain, applies windowing and filtering if specified, 
+    and then stitches the chunks together, filling the gaps with NaNs.
+
+    Parameters
+    ----------
+    w_t : array_like
+        Original time series data with gaps filled with NaNs.
+    t : array_like
+        Time array corresponding to the original time series data.
+    h_pad_w : array_like
+        Padded data stream in the wavelet domain.
+    Nf : int
+        Number of frequency bins for the wavelet transform.
+    delta_t : float
+        Time step between samples in the original time series.
+    start_window : float
+        Start time of the gap window in hours.
+    end_window : float
+        End time of the gap window in hours.
+    windowing : bool, optional
+        If True, apply a Tukey window to the data chunks before processing (default is False).
+    alpha : float, optional
+        Shape parameter for the Tukey window (default is 0).
+    filter : bool, optional
+        If True, apply a high-pass Butterworth filter to the data chunks (default is False).
+
+    Returns
+    -------
+    h_approx_stitched_data : np.ndarray
+        Stitched data in the wavelet domain, with gaps filled with NaNs.
+    mask : np.ndarray
+        Boolean mask indicating the positions of the gaps in the time domain.
+
+    Notes
+    -----
+    This function assumes that the wavelet coefficients of the data are Gaussian.
+
+    Steps:
+    1. Determine the indices where the gaps start and end in the original time series.
+    2. Process each chunk of the data:
+    - Apply a Tukey window if specified.
+    - Apply a high-pass Butterworth filter if specified.
+    - Convert the data chunk to the wavelet domain.
+    3. Stitch the processed chunks together:
+    - Fill the gap in the first chunk with NaNs.
+    - Append the necessary number of NaNs to match the original time series length.
+    4. Return the stitched data and the mask indicating the gap positions.
+    """
+    # calculate the index (in normal time) where the gap starts
+    # and ends 
     start_index_gap = np.argwhere(np.isnan(w_t) == True)[0][0]
     end_index_gap = np.argwhere(np.isnan(w_t) == True)[-1][0]
 
     #================= PROCESS CHUNK 1 ===================
-    kwgs_chunk_1 = dict(Nf = Nf)
+    kwgs_wavelet = dict(Nf = Nf)
+    # Chunk the data stream into data stream 1
     h_chunk_1 = h_pad_w[0:start_index_gap]
+
+    # If we window, then we will apply a high pass filer to the tapered signal.
+    # This is essential if we want to work with noise from a very large red 
+    # noise process
     if windowing == True:
         taper = tukey(len(h_chunk_1),alpha)
-        h_chunk_1 = bandpass_data(taper * h_chunk_1, 7e-4, 1/delta_t, bandpassing_flag = filter, order = 4) 
+        # Filter the data using a butterworth filter. High pass. Allow for 
+        # only > f_min
+        f_min = 7e-4
+        h_chunk_1 = bandpass_data(taper * h_chunk_1, f_min, 1/delta_t, bandpassing_flag = filter, order = 4) 
     else:
         taper = tukey(len(h_chunk_1),0.0)
-        h_chunk_1 = bandpass_data(taper * h_chunk_1, 7e-4, 1/delta_t, bandpassing_flag = filter, order = 4) 
+        h_chunk_1 = bandpass_data(taper * h_chunk_1, f_min, 1/delta_t, bandpassing_flag = filter, order = 4) 
 
-    h_chunk_1_pad = zero_pad(h_chunk_1*taper)
-    ND_1 = len(h_chunk_1_pad)
-    Nf_1 = Nf
-    kwgs_chunk_2 = dict(Nf = Nf_1)
+    h_chunk_1_pad = zero_pad(h_chunk_1*taper) # Zero pad the data stream
+    ND_1 = len(h_chunk_1_pad) # Length of data stream for chunk 1
+
+    # Convert chunk 1 into wavelet data stream 
     freq_bin_1 = np.fft.rfftfreq(ND_1, delta_t); freq_bin_1[0] = freq_bin_1[0]
     h_chunk_1_f = np.fft.rfft(h_chunk_1_pad)
     h_chunk_1_freq_series = FrequencySeries(h_chunk_1_f , freq = freq_bin_1)
-    h_chunk_1_wavelet = from_freq_to_wavelet(h_chunk_1_freq_series, **kwgs_chunk_1)
+    h_chunk_1_wavelet = from_freq_to_wavelet(h_chunk_1_freq_series, **kwgs_wavelet)
 
+    
     #================= PROCESS CHUNK 2 ===================
+    # This is exactly the same as the lines above
+    # The goal here is to turn data stream 2 into wavelet domain
     h_chunk_2 = h_pad_w[end_index_gap+1:]
     if windowing == True:
         taper = tukey(len(h_chunk_2),alpha)
@@ -39,12 +106,10 @@ def stitch_together_data_wavelet(w_t, t, h_pad_w, Nf, delta_t, start_window, end
         h_chunk_2 = bandpass_data(taper * h_chunk_2, 7e-4, 1/delta_t, bandpassing_flag = filter, order = 4) 
     h_chunk_2_pad = zero_pad(h_chunk_2*taper)
     ND_2 = len(h_chunk_2_pad)
-    Nf_2 = Nf
-    kwgs_chunk_2 = dict(Nf = Nf_2)
     freq_bin_2 = np.fft.rfftfreq(ND_2, delta_t); freq_bin_2[0] = freq_bin_2[0]
     h_chunk_2_f = np.fft.rfft(h_chunk_2_pad)
     h_chunk_2_f_freq_series = FrequencySeries(h_chunk_2_f, freq = freq_bin_2)
-    h_chunk_2_wavelet = from_freq_to_wavelet(h_chunk_2_f_freq_series, **kwgs_chunk_2)
+    h_chunk_2_wavelet = from_freq_to_wavelet(h_chunk_2_f_freq_series, **kwgs_wavelet)
 
     #===================== Now need to stitch together the data sets =========
 
@@ -118,10 +183,6 @@ def bandpass_data(rawstrain, f_min_bp, fs, bandpassing_flag = False, order = 4):
 
     """
      if(bandpassing_flag):
-     # Bandpassing section.
-         # Create a fourth order Butterworth bandpass filter between [f_min, f_max] and apply it with the function filtfilt.
-        #  bb, ab = butter(order, [f_min_bp/(0.5*srate_dt), f_max_bp/(0.5*srate_dt)], btype='band')
-
          f_nyq = 0.5 * fs
          bb, ab = butter(order, f_min_bp/(f_nyq), btype = "highpass")
          strain = filtfilt(bb, ab, rawstrain)
