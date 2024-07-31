@@ -119,7 +119,8 @@ ax[1,1].set_xlabel('Time [seconds]')
 ax[1,1].set_ylabel('Strain')
 ax[1,1].set_title('Chirping Sinusoid, filtered')
 ax[1,1].grid()
-# plt.show()
+plt.tight_layout()
+plt.show()
 plt.clf()
 
 # Check overlaps
@@ -140,6 +141,7 @@ ax[1].set_title("Filtered freq series")
 ax[1].axvline(low_pass, c = 'black', linestyle = '--', label = 'low frequency filter')
 ax[1].axvline(high_pass, c = 'black', linestyle = '--', label = 'high frequency filter')
 ax[1].legend()
+plt.tight_layout()
 plt.show()
 
 # quit()
