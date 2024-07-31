@@ -6,7 +6,7 @@ from pywavelet.transforms.to_wavelets import (from_freq_to_wavelet, from_time_to
 from pywavelet.utils.lisa import zero_pad
 
 
-def stitch_together_data_wavelet(w_t, t, h_pad_w, Nf, delta_t, start_window, end_window, windowing = False):
+def stitch_together_data_wavelet(w_t, t, h_pad_w, Nf, delta_t, start_window, end_window, windowing = False, alpha = 0, filter = False, **kwargs):
     start_index_gap = np.argwhere(np.isnan(w_t) == True)[0][0]
     end_index_gap = np.argwhere(np.isnan(w_t) == True)[-1][0]
 
@@ -14,9 +14,12 @@ def stitch_together_data_wavelet(w_t, t, h_pad_w, Nf, delta_t, start_window, end
     kwgs_chunk_1 = dict(Nf = Nf)
     h_chunk_1 = h_pad_w[0:start_index_gap]
     if windowing == True:
-        taper = tukey(len(h_chunk_1),0.1)
+        taper = tukey(len(h_chunk_1),alpha)
+        h_chunk_1 = bandpass_data(taper * h_chunk_1, 5e-4, 1/delta_t, bandpassing_flag = filter, order = 2) 
     else:
-        taper = tukey(len(h_chunk_1),0)
+        taper = tukey(len(h_chunk_1),0.0)
+        h_chunk_1 = bandpass_data(taper * h_chunk_1, 5e-4, 1/delta_t, bandpassing_flag = filter, order = 2) 
+
     h_chunk_1_pad = zero_pad(h_chunk_1*taper)
     ND_1 = len(h_chunk_1_pad)
     Nf_1 = Nf
@@ -29,9 +32,11 @@ def stitch_together_data_wavelet(w_t, t, h_pad_w, Nf, delta_t, start_window, end
     #================= PROCESS CHUNK 2 ===================
     h_chunk_2 = h_pad_w[end_index_gap+1:]
     if windowing == True:
-        taper = tukey(len(h_chunk_2),0.1)
+        taper = tukey(len(h_chunk_2),alpha)
+        h_chunk_2 = bandpass_data(taper * h_chunk_2, 5e-4, 1/delta_t, bandpassing_flag = filter, order = 2) 
     else:
-        taper = tukey(len(h_chunk_2),0)
+        taper = tukey(len(h_chunk_2),0.0)
+        h_chunk_2 = bandpass_data(taper * h_chunk_2, 5e-4, 1/delta_t, bandpassing_flag = filter, order = 2) 
     h_chunk_2_pad = zero_pad(h_chunk_2*taper)
     ND_2 = len(h_chunk_2_pad)
     Nf_2 = Nf
@@ -86,8 +91,7 @@ def stitch_together_data_wavelet(w_t, t, h_pad_w, Nf, delta_t, start_window, end
     # This is general and is the general structure from time -> freq -> wavelet for given gapped data set
 
     return h_approx_stitched_data, mask
-
-def bandpass_data(rawstrain, f_min_bp, f_max_bp, srate_dt, bandpassing_flag):
+def bandpass_data(rawstrain, f_min_bp, fs, bandpassing_flag = False, order = 4):
      """
 
     Bandpass the raw strain between [f_min, f_max] Hz.
@@ -116,9 +120,11 @@ def bandpass_data(rawstrain, f_min_bp, f_max_bp, srate_dt, bandpassing_flag):
      if(bandpassing_flag):
      # Bandpassing section.
          # Create a fourth order Butterworth bandpass filter between [f_min, f_max] and apply it with the function filtfilt.
-         bb, ab = butter(4, [f_min_bp/(0.5*srate_dt), f_max_bp/(0.5*srate_dt)], btype='band')
+        #  bb, ab = butter(order, [f_min_bp/(0.5*srate_dt), f_max_bp/(0.5*srate_dt)], btype='band')
+
+         f_nyq = 0.5 * fs
+         bb, ab = butter(order, f_min_bp/(f_nyq), btype = "highpass")
          strain = filtfilt(bb, ab, rawstrain)
      else:
          strain = rawstrain
-
      return strain
