@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 
 sys.path.append("../../Frequency_Domain/")
 from noise_curves import noise_PSD_AE, CornishPowerSpectralDensity
-from stitch_data_set import stitch_together_data_wavelet
+from wavelet_data_utils import stitch_together_data_wavelet, bandpass_data
 
 np.random.seed(1234)
 
