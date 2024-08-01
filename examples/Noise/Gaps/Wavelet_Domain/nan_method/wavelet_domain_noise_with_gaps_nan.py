@@ -78,8 +78,8 @@ TDI = "Cornish"
 start_gap = 4
 end_gap = 6
 
-# Nf = 8 works
-Nf = 16
+# Nf = 32 #works
+Nf = 8 
 
 tmax = 10 * 60 * 60  # Final time
 fs = 2 * f_true  # Sampling rate
@@ -108,52 +108,27 @@ if TDI == "TDI1" or TDI == "TDI2":
 else:
     PSD = CornishPowerSpectralDensity(freq)
 
-freq  = np.arange(1e-5, 5e-1, 1e-7)
-PSD_TDI1 = noise_PSD_AE(freq,TDI = "TDI1")
-PSD_TDI2 = noise_PSD_AE(freq,TDI = "TDI2")
-PSD_Cornish = CornishPowerSpectralDensity(freq)
+# freq  = np.arange(1e-5, 5e-1, 1e-7)
+# PSD_TDI1 = noise_PSD_AE(freq,TDI = "TDI1")
+# PSD_TDI2 = noise_PSD_AE(freq,TDI = "TDI2")
+# PSD_Cornish = CornishPowerSpectralDensity(freq)
 
-plt.loglog(freq, PSD_TDI1, label = "TDI1")
-plt.loglog(freq, PSD_TDI2, label = "TDI2")
-plt.loglog(freq, PSD_Cornish, label = "Cornish")
-plt.legend()
+# plt.loglog(freq, PSD_TDI1, label = "TDI1")
+# plt.loglog(freq, PSD_TDI2, label = "TDI2")
+# plt.loglog(freq, PSD_Cornish, label = "Cornish")
+# plt.legend()
 
-plt.title("Comparison, PSDs")
-plt.xlabel(r" Frequency [Hz]")
-plt.ylabel(r"Magnitude (seconds)")
-plt.grid()
-plt.show()
-quit()
+# plt.title("Comparison, PSDs")
+# plt.xlabel(r" Frequency [Hz]")
+# plt.ylabel(r"Magnitude (seconds)")
+# plt.grid()
+# plt.show()
 SNR2 = inner_prod(
     h_true_f, h_true_f, PSD, delta_t, N
 )  # Compute optimal matched filtering SNR
 print("SNR of source", np.sqrt(SNR2))
 
 #  =============== WAVELET DOMAIN ========================
-signal_f_series = FrequencySeries(data=h_true_f, freq=freq)
-psd = FrequencySeries(data = PSD, freq = freq)
-
-kwgs = dict(
-    Nf=Nf,
-)
-
-
-h_wavelet = Data.from_frequencyseries(signal_f_series, **kwgs).wavelet
-psd_wavelet = evolutionary_psd_from_stationary_psd(
-                                                    psd=psd.data,
-                                                    psd_f=psd.freq,
-                                                    f_grid=h_wavelet.freq,
-                                                    t_grid=h_wavelet.time,
-                                                    dt=delta_t,
-                                                )
-
-Wavelet_Matrix = psd_wavelet.data
-
-SNR2_wavelet = np.nansum((h_wavelet*h_wavelet) / psd_wavelet)
-print("SNR in wavelet domain is", SNR2_wavelet**(1/2))
-
-
-# Compute things in the wavelet domain
 
 signal_f_series = FrequencySeries(data=h_true_f, freq=freq)
 psd = FrequencySeries(data = PSD, freq = freq)
@@ -194,18 +169,16 @@ plt.title('Gaps')
 plt.grid()
 plt.savefig("../plots/waveform_nan.pdf",bbox_inches = "tight")
 plt.clf()
+h_approx_stitched_data, mask, template_window = stitch_together_data_wavelet(w_t, t, h_t_pad, Nf, 
+                                                                            delta_t, start_gap, end_gap, 
+                                                                            windowing = True, alpha = 0.2, 
+                                                                            filter = True)
 
-h_approx_stitched_data, mask = stitch_together_data_wavelet(w_t, t_pad, h_t_pad, Nf, delta_t, start_gap, end_gap, windowing = True, alpha = 0.05, filter = True)
 # ===================== Old data set, force to have nans ===========================
-
-h_wavelet_matrix = h_wavelet.data
-h_wavelet_matrix_with_nans = h_wavelet_matrix.copy()
-h_wavelet_matrix_with_nans[:, ~mask] = np.nan 
 
 Wavelet_Matrix_with_nans = Wavelet_Matrix.copy()
 Wavelet_Matrix_with_nans[:,~mask] = np.nan
-
-SNR2_original_data_gaps = np.nansum( h_wavelet_matrix_with_nans * h_wavelet_matrix_with_nans / Wavelet_Matrix_with_nans) 
+SNR2_original_data_gaps = np.nansum( h_approx_stitched_data * h_approx_stitched_data / Wavelet_Matrix_with_nans) 
 SNR2_stitched_data_gaps = np.nansum( h_approx_stitched_data * h_approx_stitched_data / Wavelet_Matrix_with_nans) 
 
 print("Using original data stream with gaps, we find SNR = ", np.sqrt(SNR2_original_data_gaps))
@@ -220,14 +193,11 @@ noise_f_iter[0] = np.sqrt(2)*noise_f_iter[0].real
 noise_f_iter[-1] = np.sqrt(2)*noise_f_iter[-1].real
 noise_t = np.fft.irfft(noise_f_iter)
 
-noise_wavelet_stitched, _ = stitch_together_data_wavelet(w_t, t_pad, noise_t, Nf, delta_t, start_gap, end_gap, windowing = True, alpha = 0.05, filter = True)
+noise_wavelet_stitched, _, _ = stitch_together_data_wavelet(w_t, t_pad, noise_t, Nf, delta_t, start_gap, end_gap, windowing = True , alpha = 0.2, filter = True)
 
-data_set_wavelet_stitched = h_approx_stitched_data + 1*noise_wavelet_stitched 
+data_set_wavelet_stitched = h_approx_stitched_data + 0*noise_wavelet_stitched 
 
 # Let's try to estimate likelihood by generating a load of signals, gapping them and computing the likelihood 
-
-def likelihood_gap(data_wavelet, template_wavelet, psd_matrix):
-    return -0.5 * np.nansum ( (data_wavelet - template_wavelet)**2 / psd_matrix)
 
 precision = a_true / SNR2_original_data_gaps**(1/2)
 n = 5
@@ -237,15 +207,23 @@ if a_true not in a_range:
     a_range = np.sort(np.insert(a_range, 0, a_true))
 
 llike_vec = []
+
+f_min = 9e-4
+# ===================== Old data set, force to have nans ===========================
 for a_val in a_range:
+
     h_prop = waveform(a_val, f_true, fdot_true, t)
-    taper_signal = tukey(len(h_prop), alpha = 0.0)
-    h_prop_pad = zero_pad(h_prop*taper_signal)
+    # h_prop_pad = template_window * zero_pad(h_prop)
+    # h_prop_filter = bandpass_data(h_prop, f_min, 1/delta_t, bandpassing_flag = True, order = 4)
+    
+    # h_prop_pad = zero_pad(h_prop_filter)
     # h_prop_f = np.fft.rfft(h_prop_pad)
     # h_prop_f_FreqSeries = FrequencySeries(h_prop_f, freq=freq)
-    # h_wavelet = from_freq_to_wavelet(h_prop_f_FreqSeries, Nf = Nf)
+    # h_prop_wavelet = from_freq_to_wavelet(h_prop_f_FreqSeries, Nf = Nf)
 
-    h_prop_wavelet,_ = stitch_together_data_wavelet(w_t, t_pad, h_prop_pad, Nf, delta_t, start_gap, end_gap, windowing = True, alpha = 0.05, filter = True)
+    # taper_signal = tukey(len(h_prop), alpha = 0.0)
+    h_prop_pad = zero_pad(taper_signal)
+    h_prop_wavelet,_,_ = stitch_together_data_wavelet(w_t, t, h_prop_pad, Nf, delta_t, start_gap, end_gap, windowing = True, alpha = 0.2, filter = True)
 
     llike_val = -0.5 * np.nansum ( ((data_set_wavelet_stitched - h_prop_wavelet)**2) / Wavelet_Matrix_with_nans) 
     llike_vec.append(llike_val)
@@ -264,18 +242,69 @@ if TDI == "TDI1" or TDI == "TDI2":
 else:
     plt.title(r'Likelihood -- With {} noise and Nf = {}'.format("Cornish", Nf))
 plt.show()
+plt.clf()
 # Extra processing
 
-h_prop = waveform(a_true, f_true, fdot_true, t)
-taper_signal = tukey(len(h_prop), alpha = 0.0)
-h_prop_pad = zero_pad(h_prop*taper_signal)
+# h_prop = waveform(a_true, f_true, fdot_true, t)
+# h_prop_pad = zero_pad(h_prop)
 
-h_prop_wavelet,_ = stitch_together_data_wavelet(w_t, t_pad, h_prop_pad, Nf, delta_t, start_gap, end_gap)
+# h_prop_wavelet,mask,_ = stitch_together_data_wavelet(w_t, t, h_prop_pad, Nf, delta_t, start_gap, end_gap)
 
-llike_val = -0.5 * np.nansum ( ((noise_wavelet_stitched)**2) / Wavelet_Matrix_with_nans) 
+# llike_val = -0.5 * np.nansum ( ((noise_wavelet_stitched)**2) / Wavelet_Matrix_with_nans) 
 
-print("log_like value for noise = ", llike_val)
-print("Number of data points in time, N = ", N/2)
+# print("log_like value for noise = ", llike_val)
+# print("Number of data points in time, N = ", N/2)
 
+# Generate true signal with mask given by the gaps
 breakpoint()
+h_prop = waveform(a_val, f_true, fdot_true, t_pad)
+h_prop_filter = bandpass_data(h_prop, f_min, 1/delta_t, bandpassing_flag = False, order = 4)
 
+h_prop_pad = zero_pad(h_prop_filter)
+h_prop_f = np.fft.rfft(h_prop_pad)
+h_prop_f_FreqSeries = FrequencySeries(h_prop_f, freq=freq)
+h_prop_wavelet = from_freq_to_wavelet(h_prop_f_FreqSeries, Nf = Nf)
+
+h_prop_wavelet_mask = h_prop_wavelet.copy()
+h_prop_wavelet_mask[:,~mask] = np.nan
+# Plot the data
+
+# Plot wavelet grid
+
+
+h_approx_stitched_data, mask, template_window = stitch_together_data_wavelet(w_t, t, h_prop_pad, Nf, delta_t, start_gap, end_gap, windowing = True, alpha = 0.4, filter = True)
+
+stitched_matrix = np.nan_to_num(h_approx_stitched_data, nan=0.0)
+full_template_w_gap = np.nan_to_num(h_prop_wavelet_mask.data, nan=0.0)
+fig, ax = plt.subplots(1, 2, figsize=(16, 7))
+plot_wavelet_grid(
+    stitched_matrix,
+    time_grid=h_prop_wavelet.time,
+    freq_grid=h_prop_wavelet.freq,
+    ax=ax[0],
+    zscale="linear",
+    freq_scale="linear",
+    absolute=False
+    # freq_range=[0, 300]
+)
+
+ax[0].set_xlabel('Wavelet time bins')  # Custom x-label for the first subplot
+ax[0].set_ylabel('Wavelet Frequency bins')  # Custom y-label for the first subplot
+ax[0].set_title('Stitched together data set')  # Custom title for the first subplot
+# Broken
+
+fig = plot_wavelet_grid(
+    full_template_w_gap,
+    time_grid=h_prop_wavelet.time,
+    freq_grid=h_prop_wavelet.freq,
+    ax=ax[1],
+    zscale="linear",
+    freq_scale="linear",
+    absolute=False
+    # freq_range=[0, 300]
+)
+
+ax[1].set_xlabel('Wavelet time bins')  # Custom x-label for the first subplot
+ax[1].set_ylabel('Wavelet Frequency bins')  # Custom y-label for the first subplot
+ax[1].set_title('generated template with mask')  # Custom title for the first subplot
+plt.show()

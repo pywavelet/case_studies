@@ -6,6 +6,8 @@ from pywavelet.transforms.to_wavelets import (from_freq_to_wavelet, from_time_to
 from pywavelet.utils.lisa import zero_pad
 
 
+import matplotlib.pyplot as plt
+
 def stitch_together_data_wavelet(w_t, t, h_pad_w, Nf, delta_t, start_window, 
                                 end_window, windowing = False, alpha = 0, 
                                 filter = False):
@@ -63,8 +65,11 @@ def stitch_together_data_wavelet(w_t, t, h_pad_w, Nf, delta_t, start_window,
     """
     # calculate the index (in normal time) where the gap starts
     # and ends 
+
     start_index_gap = np.argwhere(np.isnan(w_t) == True)[0][0]
     end_index_gap = np.argwhere(np.isnan(w_t) == True)[-1][0]
+    N_end = len(t) #int(t[-1]/delta_t)
+    f_min = 9e-4
 
     #================= PROCESS CHUNK 1 ===================
     kwgs_wavelet = dict(Nf = Nf)
@@ -74,17 +79,12 @@ def stitch_together_data_wavelet(w_t, t, h_pad_w, Nf, delta_t, start_window,
     # If we window, then we will apply a high pass filer to the tapered signal.
     # This is essential if we want to work with noise from a very large red 
     # noise process
+    taper_1 = tukey(len(h_chunk_1),alpha)
+    if filter == True:
+        h_chunk_1 = bandpass_data(h_chunk_1, f_min, 1/delta_t, bandpassing_flag = filter, order = 4) 
     if windowing == True:
-        taper = tukey(len(h_chunk_1),alpha)
-        # Filter the data using a butterworth filter. High pass. Allow for 
-        # only > f_min
-        f_min = 7e-4
-        h_chunk_1 = bandpass_data(taper * h_chunk_1, f_min, 1/delta_t, bandpassing_flag = filter, order = 4) 
-    else:
-        taper = tukey(len(h_chunk_1),0.0)
-        h_chunk_1 = bandpass_data(taper * h_chunk_1, f_min, 1/delta_t, bandpassing_flag = filter, order = 4) 
-
-    h_chunk_1_pad = zero_pad(h_chunk_1*taper) # Zero pad the data stream
+        h_chunk_1 *= taper_1
+    h_chunk_1_pad = zero_pad(h_chunk_1) # Zero pad the data stream
     ND_1 = len(h_chunk_1_pad) # Length of data stream for chunk 1
 
     # Convert chunk 1 into wavelet data stream 
@@ -94,23 +94,34 @@ def stitch_together_data_wavelet(w_t, t, h_pad_w, Nf, delta_t, start_window,
     h_chunk_1_wavelet = from_freq_to_wavelet(h_chunk_1_freq_series, **kwgs_wavelet)
 
     
-    #================= PROCESS CHUNK 2 ===================
+    #================= PROCESS CHUNK 2, end of data ===================
     # This is exactly the same as the lines above
     # The goal here is to turn data stream 2 into wavelet domain
-    h_chunk_2 = h_pad_w[end_index_gap+1:]
+    h_chunk_2 = h_pad_w[end_window:N_end]
+    h_chunk_2_padded = h_pad_w[end_index_gap:]
+    N_final_chunk = len(zero_pad(h_chunk_2_padded))
+
+    taper_2 = tukey(len(h_chunk_2),alpha)
+    if filter == True:
+        h_chunk_2 = bandpass_data(h_chunk_2, f_min, 1/delta_t, bandpassing_flag = filter, order = 4) 
     if windowing == True:
-        taper = tukey(len(h_chunk_2),alpha)
-        h_chunk_2 = bandpass_data(taper * h_chunk_2, 7e-4, 1/delta_t, bandpassing_flag = filter, order = 4) 
-    else:
-        taper = tukey(len(h_chunk_2),0.0)
-        h_chunk_2 = bandpass_data(taper * h_chunk_2, 7e-4, 1/delta_t, bandpassing_flag = filter, order = 4) 
-    h_chunk_2_pad = zero_pad(h_chunk_2*taper)
+        h_chunk_2 *= taper_2
+
+    padding_length = N_final_chunk - len(h_chunk_2)
+    h_chunk_2_pad = np.pad(h_chunk_2, (0, padding_length), 'constant', constant_values=0)
+
     ND_2 = len(h_chunk_2_pad)
     freq_bin_2 = np.fft.rfftfreq(ND_2, delta_t); freq_bin_2[0] = freq_bin_2[0]
     h_chunk_2_f = np.fft.rfft(h_chunk_2_pad)
     h_chunk_2_f_freq_series = FrequencySeries(h_chunk_2_f, freq = freq_bin_2)
     h_chunk_2_wavelet = from_freq_to_wavelet(h_chunk_2_f_freq_series, **kwgs_wavelet)
 
+    #===================== Build window to pass to templates ==========
+
+    # taper_1_padded = np.pad(taper_1[0:-1], (0, end_index_gap - start_index_gap), 'constant', constant_values=0)
+    taper_1_padded = np.pad(taper_1, (0, end_index_gap - start_index_gap + 1), 'constant', constant_values=0)
+    template_window = np.concatenate((taper_1_padded,taper_2))
+    template_window_pad = zero_pad(template_window)
     #===================== Now need to stitch together the data sets =========
 
     # Extract the time bins of wavelet data set 1
@@ -129,7 +140,8 @@ def stitch_together_data_wavelet(w_t, t, h_pad_w, Nf, delta_t, start_window,
 
     # Extract wavelet time bins full signal. This is still general, could get this
     # from the fitted window function. 
-    w_t_TimeSeries = TimeSeries(w_t, t)
+    t_pad = np.arange(0,len(w_t)*delta_t, delta_t)
+    w_t_TimeSeries = TimeSeries(w_t, t_pad)
     w_t_wavelet = from_time_to_wavelet(w_t_TimeSeries, Nf)
     wavelet_times_full_signal = w_t_wavelet.time.data
     Nt = w_t_wavelet.data.shape[1] # Extract Nt of full data set 
@@ -155,7 +167,7 @@ def stitch_together_data_wavelet(w_t, t, h_pad_w, Nf, delta_t, start_window,
     # The matrix above has dimensions the same as the original data set :). Nf must be fixed. 
     # This is general and is the general structure from time -> freq -> wavelet for given gapped data set
 
-    return h_approx_stitched_data, mask
+    return h_approx_stitched_data, mask, template_window_pad
 def bandpass_data(rawstrain, f_min_bp, fs, bandpassing_flag = False, order = 4):
      """
 
