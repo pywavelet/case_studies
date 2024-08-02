@@ -79,7 +79,7 @@ start_gap = 4
 end_gap = 6
 
 # Nf = 32 #works
-Nf = 8 
+Nf = 16 
 
 tmax = 10 * 60 * 60  # Final time
 fs = 2 * f_true  # Sampling rate
@@ -169,9 +169,9 @@ plt.title('Gaps')
 plt.grid()
 plt.savefig("../plots/waveform_nan.pdf",bbox_inches = "tight")
 plt.clf()
-h_approx_stitched_data, mask, template_window = stitch_together_data_wavelet(w_t, t, h_t_pad, Nf, 
+h_approx_stitched_data, mask, template_window = stitch_together_data_wavelet(w_t, t_pad, h_t_pad, Nf, 
                                                                             delta_t, start_gap, end_gap, 
-                                                                            windowing = True, alpha = 0.2, 
+                                                                            windowing = False, alpha = 0.0, 
                                                                             filter = True)
 
 # ===================== Old data set, force to have nans ===========================
@@ -193,7 +193,7 @@ noise_f_iter[0] = np.sqrt(2)*noise_f_iter[0].real
 noise_f_iter[-1] = np.sqrt(2)*noise_f_iter[-1].real
 noise_t = np.fft.irfft(noise_f_iter)
 
-noise_wavelet_stitched, _, _ = stitch_together_data_wavelet(w_t, t_pad, noise_t, Nf, delta_t, start_gap, end_gap, windowing = True , alpha = 0.2, filter = True)
+noise_wavelet_stitched, _, _ = stitch_together_data_wavelet(w_t, t_pad, noise_t, Nf, delta_t, start_gap, end_gap, windowing = False , alpha = 0.0, filter = True)
 
 data_set_wavelet_stitched = h_approx_stitched_data + 0*noise_wavelet_stitched 
 
@@ -210,6 +210,11 @@ llike_vec = []
 
 f_min = 9e-4
 # ===================== Old data set, force to have nans ===========================
+h_approx_stitched_data, mask, template_window = stitch_together_data_wavelet(w_t, t_pad, h_t_pad, Nf, 
+                                                                            delta_t, start_gap, end_gap, 
+                                                                            windowing = False, alpha = 0.0, 
+                                                                            filter = True)
+
 for a_val in a_range:
 
     h_prop = waveform(a_val, f_true, fdot_true, t)
@@ -223,9 +228,9 @@ for a_val in a_range:
 
     # taper_signal = tukey(len(h_prop), alpha = 0.0)
     h_prop_pad = zero_pad(taper_signal)
-    h_prop_wavelet,_,_ = stitch_together_data_wavelet(w_t, t, h_prop_pad, Nf, delta_t, start_gap, end_gap, windowing = True, alpha = 0.2, filter = True)
+    h_prop_wavelet,_,_ = stitch_together_data_wavelet(w_t, t_pad, h_prop_pad, Nf, delta_t, start_gap, end_gap, windowing = False, alpha = 0.0, filter = True)
 
-    llike_val = -0.5 * np.nansum ( ((data_set_wavelet_stitched - h_prop_wavelet)**2) / Wavelet_Matrix_with_nans) 
+    llike_val = -0.5 * np.nansum ( ((h_approx_stitched_data - h_prop_wavelet)**2) / Wavelet_Matrix_with_nans) 
     llike_vec.append(llike_val)
 
 
