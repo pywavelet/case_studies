@@ -3,6 +3,7 @@
 
 from scipy.signal.windows import tukey
 import numpy as np
+from scipy.signal import butter, filtfilt
 
 ONE_HOUR = 60*60
 def gap_routine(t, start_window, end_window, lobe_length = 3, delta_t = 10):
@@ -108,3 +109,40 @@ def regularise_matrix(Cov_Matrix, window, tol = 0.01):
     np.fill_diagonal(Cov_Matrix_reg_inv, np.real(np.diag(Cov_Matrix_reg_inv))) # Force diagonal to be real. 
     return Cov_Matrix_reg_inv 
 
+def bandpass_data(rawstrain, f_min_bp, fs, bandpassing_flag = False, order = 4):
+     """
+
+    Bandpass the raw strain between [f_min, f_max] Hz.
+
+    Arguments
+    ---------
+
+    rawstrain: numpy array
+    The raw strain data.
+    f_min_bp: float
+    The lower frequency of the bandpass filter.
+    f_max_bp: float
+    The upper frequency of the bandpass filter.
+    srate_dt: float
+    The sampling rate of the data.
+    bandpassing_flag: bool
+    Whether to apply bandpassing or not.
+
+    Returns
+    -------
+
+    strain: numpy array
+    The bandpassed strain data.
+
+    """
+     if(bandpassing_flag):
+     # Bandpassing section.
+         # Create a fourth order Butterworth bandpass filter between [f_min, f_max] and apply it with the function filtfilt.
+        #  bb, ab = butter(order, [f_min_bp/(0.5*srate_dt), f_max_bp/(0.5*srate_dt)], btype='band')
+
+         f_nyq = 0.5 * fs
+         bb, ab = butter(order, f_min_bp/(f_nyq), btype = "highpass")
+         strain = filtfilt(bb, ab, rawstrain)
+     else:
+         strain = rawstrain
+     return strain
