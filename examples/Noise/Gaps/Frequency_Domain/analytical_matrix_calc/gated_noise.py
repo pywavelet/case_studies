@@ -125,11 +125,12 @@ print("Building the analytical covariance matrix")
 Cov_Matrix_Gated = get_Cov(Cov_Matrix, w_fft, w_star_fft, delta_f, PSD_pos_neg)
 Cov_Matrix_Gated_Inv = np.linalg.inv(Cov_Matrix_Gated)
 
-
 # Regularise covariance matrix (stop it being singular)
 zero_points_window = np.argwhere(w_t == 0)[1][0]
 tol = w_t[zero_points_window - 1] # Last moment before w_t is nonzero
 Cov_Matrix_Gated_Inv_Regularised = regularise_matrix(Cov_Matrix_Gated, w_t, tol = tol)
+
+
 
 Cov_Matrix_Stat = np.linalg.inv(np.diag(N*PSD/(2*delta_t)))
 

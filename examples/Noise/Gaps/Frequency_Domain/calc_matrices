@@ -1,0 +1,4 @@
+cd analytical_matrix_calc
+python gated_filtered_noise.py
+cd ../estimated_matrix_calc
+python estm_gap_filtered_cov.py

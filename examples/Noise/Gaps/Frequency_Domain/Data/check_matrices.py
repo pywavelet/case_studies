@@ -2,56 +2,77 @@ import matplotlib.pyplot as plt
 import os
 import numpy as np
 
+TDI = "TDI1"
+filter = True
 print("Now loading in analytical cov matrix")
-Cov_Matrix_analytical_gap_TDI1 = np.load("Cov_Matrix_analytical_gap_TDI1.npy")
-Cov_Matrix_analytical_gap_TDI2 = np.load("Cov_Matrix_analytical_gap_TDI2.npy")
-Cov_Matrix_analytical_gap_Cornish = np.load("Cov_Matrix_analytical_gap_cornish.npy")
-print("Now loading in estimated covariance matrix")
-Cov_Matrix_estm_gap = np.load("Cov_Matrix_estm_gap.npy")
 
-# fig,ax = plt.subplots(2,2, figsize = (16,8))
-# j = 0
 
-# ax[0,0].semilogy(np.abs(np.diag(Cov_Matrix_analytical_gap,j)),'*',label = 'analytical')
-# ax[0,0].semilogy(np.abs(np.diag(Cov_Matrix_estm_gap,j)),alpha = 0.7,label = 'estimated')
-# ax[0,0].set_title('Comparison of covariance matrices: Diagonal = {0}'.format(j))
+if TDI == "Cornish":
+    if filter:
+        Cov_Matrix_analytical_gap = np.load("Cov_Matrix_analytical_gap_Cornish_filtered.npy")
+        Cov_Matrix_estm_gap = np.load("Cov_Matrix_estm_gap_Cornish_filtered.npy")
+    else:
+        Cov_Matrix_analytical_gap = np.load("Cov_Matrix_analytical_gap_Cornish.npy")
+        Cov_Matrix_estm_gap = np.load("Cov_Matrix_estm_gap_Cornish.npy")
+elif TDI == "TDI1":
+    if filter: 
+        Cov_Matrix_analytical_gap = np.load("Cov_Matrix_analytical_gap_TDI1_filtered.npy")
+        Cov_Matrix_estm_gap = np.load("Cov_Matrix_estm_gap_TDI1_filtered.npy")
+    else:
+        Cov_Matrix_analytical_gap = np.load("Cov_Matrix_analytical_gap_TDI1.npy")
+        Cov_Matrix_estm_gap = np.load("Cov_Matrix_estm_gap_TDI1.npy")
+elif TDI == "TDI2":
+    if filter:
+        Cov_Matrix_analytical_gap = np.load("Cov_Matrix_analytical_gap_TDI2_filtered.npy")
+        Cov_Matrix_estm_gap = np.load("Cov_Matrix_estm_gap_Cornish_filtered.npy")
+    else:
+        Cov_Matrix_analytical_gap = np.load("Cov_Matrix_analytical_gap_TDI2_filtered.npy")
+        Cov_Matrix_estm_gap = np.load("Cov_Matrix_estm_gap_TDI2.npy")
+    
+fig,ax = plt.subplots(2,2, figsize = (16,8))
+j = 0
 
-# ax[0,1].semilogy(np.abs(np.diag(Cov_Matrix_analytical_gap,j+10)),'*',label = 'analytical')
-# ax[0,1].semilogy(np.abs(np.diag(Cov_Matrix_estm_gap,j+10)),alpha = 0.7,label = 'estimated')
-# ax[0,1].set_title('Comparison of covariance matrices: Diagonal = {0}'.format(j+10))
+ax[0,0].semilogy(np.abs(np.diag(Cov_Matrix_analytical_gap,j)),'*',label = 'analytical')
+ax[0,0].semilogy(np.abs(np.diag(Cov_Matrix_estm_gap,j)),alpha = 0.7,label = 'estimated')
+ax[0,0].set_title('Comparison of covariance matrices: Diagonal = {0}'.format(j))
 
-# ax[1,0].semilogy(np.abs(np.diag(Cov_Matrix_analytical_gap,j+50)),'*',label = 'analytical')
-# ax[1,0].semilogy(np.abs(np.diag(Cov_Matrix_estm_gap,j+50)),alpha = 0.7,label = 'estimated')
-# ax[1,0].set_title('Comparison of covariance matrices: Diagonal = {0}'.format(j+50))
+ax[0,1].semilogy(np.abs(np.diag(Cov_Matrix_analytical_gap,j+10)),'*',label = 'analytical')
+ax[0,1].semilogy(np.abs(np.diag(Cov_Matrix_estm_gap,j+10)),alpha = 0.7,label = 'estimated')
+ax[0,1].set_title('Comparison of covariance matrices: Diagonal = {0}'.format(j+10))
 
-# ax[1,1].semilogy(np.abs(np.diag(Cov_Matrix_analytical_gap,j+100)),'*',label = 'analytical')
-# ax[1,1].semilogy(np.abs(np.diag(Cov_Matrix_estm_gap,j+100)),alpha = 0.7,label = 'estimated')
-# ax[1,1].set_title('Comparison of covariance matrices: Diagonal = {0}'.format(j+100))
+ax[1,0].semilogy(np.abs(np.diag(Cov_Matrix_analytical_gap,j+50)),'*',label = 'analytical')
+ax[1,0].semilogy(np.abs(np.diag(Cov_Matrix_estm_gap,j+50)),alpha = 0.7,label = 'estimated')
+ax[1,0].set_title('Comparison of covariance matrices: Diagonal = {0}'.format(j+50))
 
-# for i in range(0,2):
-#     for j in range(0,2):
-#         ax[i,j].set_xlabel(r'index of matrix')
-#         ax[i,j].set_ylabel(r'magnitude')
-#         ax[i,j].legend()
-#         ax[i,j].grid()
-# plt.tight_layout()
-# plt.show()
+ax[1,1].semilogy(np.abs(np.diag(Cov_Matrix_analytical_gap,j+100)),'*',label = 'analytical')
+ax[1,1].semilogy(np.abs(np.diag(Cov_Matrix_estm_gap,j+100)),alpha = 0.7,label = 'estimated')
+ax[1,1].set_title('Comparison of covariance matrices: Diagonal = {0}'.format(j+100))
+
+for i in range(0,2):
+    for j in range(0,2):
+        ax[i,j].set_xlabel(r'index of matrix')
+        ax[i,j].set_ylabel(r'magnitude')
+        ax[i,j].legend()
+        ax[i,j].grid()
+plt.tight_layout()
+plt.show()
+plt.clf()
+# quit()
 
 # Analyse the two inverse matrices together -- see that they are dense as fuck
 
-N_time = 2*(Cov_Matrix_analytical_gap_TDI1.shape[0] - 1)
+N_time = 2*(Cov_Matrix_estm_gap.shape[0] - 1)
 
-breakpoint()
 freq_bin = np.fft.rfftfreq(N_time, 66)
 title_label = [r'TDI1', r'TDI2', 'Cornish']
 
-fig,ax = plt.subplots(1,3,figsize = (16,8))
+fig,ax = plt.subplots(1,2,figsize = (16,8))
 
-mat_TDI1 = ax[0].matshow(np.log10(np.abs(Cov_Matrix_analytical_gap_TDI1)), vmin = -47, vmax = -36)
-mat_TDI2 = ax[1].matshow(np.log10(np.abs(Cov_Matrix_analytical_gap_TDI2)), vmin = -47, vmax = -36)
-mat_cornish = ax[2].matshow(np.log10(np.abs(Cov_Matrix_analytical_gap_Cornish)), vmin = -47, vmax = -36)
+mat_TDI1 = ax[0].matshow(np.log10(np.abs(Cov_Matrix_analytical_gap)), vmin = -47, vmax = -36)
+# mat_TDI2 = ax[1].matshow(np.log10(np.abs(Cov_Matrix_analytical_gap_TDI2)), vmin = -47, vmax = -36)
+mat_cornish = ax[1].matshow(np.log10(np.abs(Cov_Matrix_estm_gap)), vmin = -47, vmax = -36)
 
-cbar = fig.colorbar(mat_TDI1, ax=ax, location='top',anchor=(0, -16), 
+cbar = fig.colorbar(mat_cornish, ax=ax, location='top',anchor=(0, -16), 
              shrink=1)
 cbar.set_label(label = r'Power', fontsize = 30)
 cbar.ax.tick_params(labelsize=20) 
@@ -61,7 +82,7 @@ freq_ticks = [freq_bin[item] for item in ticks]
 
 ax[1].yaxis.tick_right()
 
-for i in range(0,3):
+for i in range(0,1):
     ax[i].set_xticks(ticks, np.round(freq_ticks,3),fontsize = 12, rotation = 315)
     ax[0].set_yticks(ticks, np.round(freq_ticks,3),fontsize = 12,rotation = 45)
     ax[1].set_yticks(ticks, np.round(freq_ticks,3),fontsize = 12,rotation = 315)

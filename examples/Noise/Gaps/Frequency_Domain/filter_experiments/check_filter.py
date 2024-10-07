@@ -40,7 +40,7 @@ freq = np.fft.rfftfreq(len(y), dt)
 f_low_index = np.argwhere(freq >= 100)[0][0]
 
 # Set up filters
-order = 5 
+order = 15
 
 # Standard (b,a) format. Not great for high orders. Numerically unstable. 
 b, a = butter(order, freq[f_low_index] / f_nyq, btype='highpass', output = 'ba')
@@ -68,10 +68,12 @@ freqs_ba, response_f_ba, = freqz(b, a, worN = N//2 + 1 , whole = False, fs = fs)
 freqs_sos, response_f_sos = sosfreqz(sos, worN= N//2 + 1, whole=False, fs=fs)
 freqs_zpk, response_f_zpk = freqz_zpk(z,p,k, worN= N//2 + 1 , whole=False, fs=fs) 
 
+breakpoint()
 # Apply the frequency response to the window function in the frequency domain
 # If we use filtfilt then we filter forwards and then backwards in time. This
 # removes any phase offset. The true response function in freq domain is the
 # squared response abs(response_f)**2. 
+# check_filter_ba = abs(response_f_ba) * np.fft.rfft(y)
 check_filter_ba = abs(response_f_ba)**2 * np.fft.rfft(y)
 check_filter_sos = abs(response_f_sos)**2 * np.fft.rfft(y)
 check_filter_zpk = abs(response_f_zpk)**2  * np.fft.rfft(y)
@@ -82,13 +84,14 @@ filtered_y_fft_ba = np.fft.rfft(y_filtered_ba)
 filtered_y_fft_sos = np.fft.rfft(y_filtered_sos)
 
 # Normalize frequency response multiplication
-fig, ax = plt.subplots(1,3, figsize=(18, 6))
+fig, ax = plt.subplots(1,3, figsize=(18, 6), sharey = True)
 ax[0].loglog(freq, np.abs(check_filter_ba)**2, c = 'blue', label='K(f) * W(f)')
 ax[0].loglog(freq, np.abs(filtered_y_fft_ba)**2, linestyle = '--', c = 'red', label='Filtered w(t)')
 ax[0].loglog(freq, np.abs(response_f_ba)**2, label = 'Filter response')
 ax[0].legend(loc = 'lower left')
 ax[0].set_xlabel('Frequency [Hz]')
 ax[0].set_ylabel('Power')
+ax[0].set_ylim([1e-20,1e10])
 ax[0].set_title('Using butter filtfilt with (b,a) format at order {}'.format(order), fontsize = 10)
 ax[0].grid()
 # Normalize frequency response multiplication
@@ -110,4 +113,7 @@ ax[2].set_xlabel('Frequency [Hz]')
 ax[2].set_ylabel('Power')
 ax[2].set_title('Using butter sosfiltfilt with zpk format at order {}'.format(order), fontsize = 10)
 ax[2].grid()
+
+for i in range(0,3):
+    ax[i].set_xlim([1,2e3])
 plt.show()
