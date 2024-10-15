@@ -7,7 +7,7 @@ from scipy.signal.windows import tukey
 import numpy as np
 
 ONE_HOUR = 60*60
-def gap_routine(t, start_window, end_window, lobe_length = 3, delta_t = 10):
+def gap_routine(t:np.ndarray, start_window:float, end_window:float, lobe_length = 3, delta_t = 10):
 
     start_window *= ONE_HOUR          # Define start of gap
     end_window *= ONE_HOUR          # Define end of gap

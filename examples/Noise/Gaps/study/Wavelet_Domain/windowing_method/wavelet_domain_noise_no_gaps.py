@@ -7,46 +7,18 @@ from tqdm import tqdm
 from numpy.random import normal
 
 from pywavelet.data import Data
-from pywavelet.psd import evolutionary_psd_from_stationary_psd
-from pywavelet.transforms.types import FrequencySeries
-from pywavelet.transforms.to_wavelets import (from_freq_to_wavelet)
+from pywavelet.utils import evolutionary_psd_from_stationary_psd
+from pywavelet.transforms.types import FrequencySeries, TimeSeries
+from pywavelet.transforms import (from_freq_to_wavelet, from_time_to_wavelet, from_wavelet_to_time)
 
-from pywavelet.plotting import plot_wavelet_grid
+from gap_study_utils.signal_utils import zero_pad, inner_prod, waveform
+from gap_study_utils.noise_curves import noise_PSD_AE, CornishPowerSpectralDensity
+from gap_study_utils.wavelet_data_utils import stitch_together_data_wavelet, bandpass_data
 import matplotlib.pyplot as plt
-
-import sys
-sys.path.append("../Frequency_Domain/")
-from noise_curves import noise_PSD_AE
 
 
 np.random.seed(1234)
 
-
-def zero_pad(data):
-    """
-    This function takes in a vector and zero pads it so it is a power of two.
-    We do this for the O(Nlog_{2}N) cost when we work in the frequency domain.
-    """
-    N = len(data)
-    pow_2 = np.ceil(np.log2(N))
-    return np.pad(data, (0, int((2**pow_2) - N)), "constant")
-
-def inner_prod(sig1_f, sig2_f, PSD, delta_t, N_t):
-    # Compute inner product. Useful for likelihood calculations and SNRs.
-    return (4 * delta_t / N_t) * np.real(
-        sum(np.conjugate(sig1_f) * sig2_f / PSD)
-    )
-
-
-def waveform(a, f, fdot, t, eps=0):
-    """
-    This is a function. It takes in a value of the amplitude $a$, frequency $f$ and frequency derivative $\dot{f}
-    and a time vector $t$ and spits out whatever is in the return function. Modify amplitude to improve SNR.
-    Modify frequency range to also affect SNR but also to see if frequencies of the signal are important
-    for the windowing method. We aim to estimate the parameters $a$, $f$ and $\dot{f}$.
-    """
-
-    return a * (np.sin((2 * np.pi) * (f * t + 0.5 * fdot * t**2)))
 
 
 a_true = 1e-21

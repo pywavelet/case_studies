@@ -1,18 +1,16 @@
-import os
-
 import numpy as np
 from scipy.signal.windows import tukey
 
-from numpy.random import normal
 
 
 from pywavelet.utils import evolutionary_psd_from_stationary_psd
 from pywavelet.transforms.types import FrequencySeries, Wavelet
 from pywavelet.transforms import from_freq_to_wavelet
-from utils import waveform, zero_pad
-from utils import inner_prod, waveform, zero_pad
-from utils.noise_curves import noise_PSD_AE, CornishPowerSpectralDensity
-from utils.gap_funcs import gap_routine, regularise_matrix, get_Cov
+
+from gap_study_utils.signal_utils import inner_prod, waveform, zero_pad
+from gap_study_utils.noise_curves import noise_PSD_AE, CornishPowerSpectralDensity
+from gap_study_utils.gap_funcs import gap_routine, regularise_matrix, get_Cov
+
 
 import os
 

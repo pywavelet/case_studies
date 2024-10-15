@@ -7,9 +7,9 @@ from tqdm import tqdm
 
 from scipy.signal.windows import tukey
 
-from utils import inner_prod, waveform, zero_pad
-from utils.noise_curves import noise_PSD_AE
-from utils.gap_funcs import gap_routine, regularise_matrix
+from gap_study_utils.signal_utils import inner_prod, waveform, zero_pad
+from gap_study_utils.noise_curves import noise_PSD_AE
+from gap_study_utils.gap_funcs import gap_routine, regularise_matrix
 
 np.random.seed(1234)
 
