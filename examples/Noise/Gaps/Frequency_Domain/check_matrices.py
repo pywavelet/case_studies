@@ -3,8 +3,8 @@ import os
 import numpy as np
 
 print("Now loading in analytical cov matrix")
-Cov_Matrix_analytical_gap_TDI1 = np.load("Cov_Matrix_analytical_gap_TDI1.npy")
-Cov_Matrix_analytical_gap_TDI2 = np.load("Cov_Matrix_analytical_gap_TDI2.npy")
+# Cov_Matrix_analytical_gap_TDI1 = np.load("Cov_Matrix_analytical_gap_TDI1.npy")
+# Cov_Matrix_analytical_gap_TDI2 = np.load("Cov_Matrix_analytical_gap_TDI2.npy")
 Cov_Matrix_analytical_gap_Cornish = np.load("Cov_Matrix_analytical_gap_cornish.npy")
 print("Now loading in estimated covariance matrix")
 Cov_Matrix_estm_gap = np.load("Cov_Matrix_estm_gap.npy")
@@ -39,19 +39,18 @@ Cov_Matrix_estm_gap = np.load("Cov_Matrix_estm_gap.npy")
 
 # Analyse the two inverse matrices together -- see that they are dense as fuck
 
-N_time = 2*(Cov_Matrix_analytical_gap_TDI1.shape[0] - 1)
+N_time = 2*(Cov_Matrix_analytical_gap_Cornish.shape[0] - 1)
 
-breakpoint()
 freq_bin = np.fft.rfftfreq(N_time, 66)
 title_label = [r'TDI1', r'TDI2', 'Cornish']
 
 fig,ax = plt.subplots(1,3,figsize = (16,8))
 
-mat_TDI1 = ax[0].matshow(np.log10(np.abs(Cov_Matrix_analytical_gap_TDI1)), vmin = -47, vmax = -36)
-mat_TDI2 = ax[1].matshow(np.log10(np.abs(Cov_Matrix_analytical_gap_TDI2)), vmin = -47, vmax = -36)
+# mat_TDI1 = ax[0].matshow(np.log10(np.abs(Cov_Matrix_analytical_gap_TDI1)), vmin = -47, vmax = -36)
+# mat_TDI2 = ax[1].matshow(np.log10(np.abs(Cov_Matrix_analytical_gap_TDI2)), vmin = -47, vmax = -36)
 mat_cornish = ax[2].matshow(np.log10(np.abs(Cov_Matrix_analytical_gap_Cornish)), vmin = -47, vmax = -36)
 
-cbar = fig.colorbar(mat_TDI1, ax=ax, location='top',anchor=(0, -16), 
+cbar = fig.colorbar(mat_cornish, ax=ax, location='top',anchor=(0, -16),
              shrink=1)
 cbar.set_label(label = r'Power', fontsize = 30)
 cbar.ax.tick_params(labelsize=20) 
@@ -69,5 +68,4 @@ for i in range(0,3):
     ax[0].set_ylabel('Frequency [Hz]', fontsize = 20)
     ax[i].set_xlabel(title_label[i],fontsize = 22)
 plt.tight_layout()  
-plt.show()
-breakpoint()
+plt.savefig('Covariance_matrix_comparison.png')

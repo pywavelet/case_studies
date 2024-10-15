@@ -1,6 +1,8 @@
 # Initial values plus sampling properties
 
 
+from numba import njit, prange
+
 from scipy.signal.windows import tukey
 import numpy as np
 
@@ -36,7 +38,6 @@ def gap_routine(t, start_window, end_window, lobe_length = 3, delta_t = 10):
     new_window *= total_window
     return new_window
 
-from numba import njit, prange
 @njit()
 def get_Cov(Cov_Matrix, w_fft, w_fft_star, delta_f, PSD):
     """
