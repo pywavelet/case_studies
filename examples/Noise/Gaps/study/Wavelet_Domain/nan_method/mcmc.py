@@ -5,6 +5,9 @@ from scipy.stats import uniform
 import numpy as np
 import corner
 
+import matplotlib.pyplot as plt
+
+
 A_RANGE = [1e-23, 1e-19]
 F_RANGE = [1e-4, 1e-2]
 FDOT_RANGE = [1e-12, 1e-6]
@@ -44,7 +47,8 @@ def trace_plot(sampler, trues=[A_TRUE, F_TRUE, FDOT_TRUE]):
     fig, axes = plt.subplots(3, figsize=(10, 7), sharex=True)
     samples = sampler.get_chain()
     labels = ["a", "f", "fdot"]
-    for i in range(ndim):
+
+    for i in range(len(labels)):
         ax = axes[i]
         ax.plot(samples[:, :, i], "k", alpha=0.3)
         ax.set_xlim(0, len(samples))
@@ -72,7 +76,7 @@ def main(
         end_gap=END_GAP,
         Nf=NF,
         tmax=TMAX,
-        n_iter=1000,
+        n_iter=5000,
         nwalkers=12
 ):
     data, psd, gap = generate_data(a_true, f_true, fdot_true, start_gap, end_gap, Nf, tmax)
@@ -86,11 +90,12 @@ def main(
     sampler.run_mcmc(x0, n_iter, progress=True)
     trace_plot(sampler)
 
-    tau = sampler.get_autocorr_time(quiet=True)
-    print("Autocorrelation time:", tau)
 
 
     plot_corner(sampler)
+    tau = sampler.get_autocorr_time(quiet=True)
+    print("Autocorrelation time:", tau)
+
 
 
 if __name__ == "__main__":

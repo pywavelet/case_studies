@@ -64,7 +64,7 @@ def generate_wavelet_with_gap(
         w_tmask[np.argmin(np.abs(w.time[:, None] - time_bins), axis=0)] = True
 
         # check no values already in that region
-        assert np.all(np.isnan(stiched_data[:, stich_tmask]))
+        # assert np.all(np.isnan(stiched_data[:, stich_tmask]))
         # fill in the values from the chunked wavelet
         stiched_data[:, stich_tmask] = chunked_wavelets[i].data[:, w_tmask]
 

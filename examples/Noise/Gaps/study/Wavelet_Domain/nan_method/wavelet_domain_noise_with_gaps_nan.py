@@ -50,7 +50,7 @@ def generate_data(
     end_gap = END_GAP,
     Nf = NF,
     tmax = TMAX,
-    plot=False,
+    plotfn="",
 ):
     ht, hf = generate_padded_signal(a_true, f_true, fdot_true, tmax)
     h_wavelet = from_freq_to_wavelet(hf, Nf=Nf)
@@ -74,7 +74,7 @@ def generate_data(
     psd_wavelet_with_gap = gap.apply_nan_gap_to_wavelet(psd_wavelet)
     print(f"SNR (hw, with gaps): {compute_snr(hwavelet_with_gap, psd_wavelet_with_gap)}")
 
-    if plot:
+    if plotfn:
         fig, ax = plt.subplots(3, 1, sharex=True, figsize=(10, 10))
         for i in range(2):
             chunks[i].plot(ax=ax[0], color=f"C{i}", label=f"Chunk {i}")
@@ -85,7 +85,7 @@ def generate_data(
             a.axvspan(start_gap, end_gap, edgecolor='k', hatch='/', zorder=10, fill=False)
         ax[0].set_xlim(0, tmax)
         plt.subplots_adjust(hspace=0)
-        plt.savefig(os.path.join(OUTDIR, "gaped_data.pdf"), bbox_inches="tight")
+        plt.savefig(os.path.join(OUTDIR, plotfn), bbox_inches="tight")
 
     return hwavelet_with_gap, psd_wavelet_with_gap, gap
 
@@ -93,5 +93,5 @@ def generate_data(
 
 
 if __name__ == "__main__":
-    generate_data(plot=True)
+    generate_data(plotfn="gaped_data.pdf")
 
