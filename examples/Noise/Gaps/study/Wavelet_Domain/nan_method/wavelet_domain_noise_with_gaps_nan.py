@@ -3,174 +3,95 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal.windows import tukey
 from tqdm import tqdm
+from matplotlib import colors
 
 
 from pywavelet.utils import evolutionary_psd_from_stationary_psd, compute_snr, compute_likelihood
-from pywavelet.transforms.types import FrequencySeries
+from pywavelet.transforms.types import FrequencySeries, TimeSeries, Wavelet
 from pywavelet.transforms import from_freq_to_wavelet
-from gap_study_utils.signal_utils import zero_pad, inner_prod, waveform
+from gap_study_utils.signal_utils import zero_pad, compute_snr_freq, waveform, generate_padded_signal, waveform_generator
 from gap_study_utils.noise_curves import noise_PSD_AE, CornishPowerSpectralDensity
-from gap_study_utils.wavelet_data_utils import stitch_together_data_wavelet
+from gap_study_utils.wavelet_data_utils import generate_wavelet_with_gap
+from gap_study_utils.gap_funcs import GapWindow
+from gap_study_utils.wavelet_data_utils import chunk_timeseries, generate_wavelet_with_gap
 
 # Constants
 ONE_HOUR = 60 * 60
+A_TRUE = 1e-21
+F_TRUE = 3e-3
+FDOT_TRUE = 1e-8
+TMAX = 18.773 * ONE_HOUR
+START_GAP = 9 * ONE_HOUR
+END_GAP = 11 * ONE_HOUR
+NF = 16
+
 
 OUTDIR = "plots"
 os.makedirs(OUTDIR, exist_ok=True)
 
-
-
-def gap_routine_nan(t, start_window, end_window, delta_t=10):
-    """
-    Insert NaN values in a given time window to simulate gaps in the data.
-
-    Parameters:
-    - t: Time array.
-    - start_window: Start of the gap window in hours.
-    - end_window: End of the gap window in hours.
-    - delta_t: Time step.
-
-    Returns:
-    - nan_window: List with 1s for valid data and NaNs for missing data in the gap.
-    """
-    start_window *= ONE_HOUR
-    end_window *= ONE_HOUR
-    nan_window = [np.nan if start_window < time < end_window else 1 for time in t]
-    return nan_window
-
-
-def compute_snr_freq(h_f, PSD, delta_t, N):
-    """
-    Compute the optimal matched filtering SNR in the frequency domain.
-
-    Parameters:
-    - h_f: Fourier transform of the signal.
-    - PSD: Power spectral density.
-    - delta_t: Sampling interval.
-    - N: Length of time series.
-
-    Returns:
-    - snr: SNR value.
-    """
-    SNR2 = inner_prod(h_f, h_f, PSD, delta_t, N)
-    return np.sqrt(SNR2)
+def lnl(a, f, fdot, gap, Nf, data, psd, windowing=True, alpha=0.0, filter=True):
+    htemplate = gap_hwavelet_generator(a, f, fdot, gap, Nf, windowing=windowing, alpha=alpha, filter=filter)
+    return compute_likelihood(data, htemplate, psd)
 
 
 
-def plot_waveform_with_gaps(t_pad, h_pad_w, start_gap, end_gap, plot_dir="../plots"):
-    """
-    Plot the waveform with gaps and save the plot.
-
-    Parameters:
-    - t_pad: Padded time array.
-    - h_pad_w: Waveform with NaN gaps.
-    - plot_dir: Directory to save the plot.
-    """
-    plt.plot(t_pad / ONE_HOUR, h_pad_w)
-    plt.xlabel(r'Time t [Hrs]')
-    plt.ylabel(r'Signal')
-    plt.title(f'Waveform with Gaps ({start_gap}-{end_gap} hrs)')
-    plt.grid()
-    os.makedirs(plot_dir, exist_ok=True)
-    plt.savefig(os.path.join(plot_dir, "waveform_nan.pdf"), bbox_inches="tight")
-    plt.clf()
-
-def generate_likelihood(a_range, t, w_t, t_pad, delta_t, start_gap, end_gap, Nf, data_set_wavelet_stitched,
-                        Wavelet_Matrix_with_nans, f_true, fdot_true, a_true, TDI):
-    """
-    Generate and plot the likelihood for different amplitude values in the wavelet domain.
-
-    Parameters:
-    - a_range: Range of amplitude values to test.
-    - t: Time array.
-    - w_t: Weighting window to apply NaNs.
-    - t_pad: Padded time array.
-    - delta_t: Sampling interval.
-    - start_gap: Start of gap in hours.
-    - end_gap: End of gap in hours.
-    - Nf: Number of frequency bins in wavelet transform.
-    - data_set_wavelet_stitched: Stitched data in the wavelet domain.
-    - Wavelet_Matrix_with_nans: PSD matrix in wavelet domain with NaNs.
-    - f_true: True frequency.
-    - fdot_true: True frequency derivative.
-    """
-    llike_vec = []
-    for a_val in tqdm(a_range):
-        h_prop = waveform(a_val, f_true, fdot_true, t)
-        h_prop_pad = zero_pad(h_prop * tukey(len(h_prop), alpha=0.0))
-        h_prop_wavelet, _ = stitch_together_data_wavelet(w_t, t_pad, h_prop_pad, Nf, delta_t, start_gap, end_gap,
-                                                         windowing=True, alpha=0.0, filter=True)
-        llike_val = compute_likelihood(data_set_wavelet_stitched, h_prop_wavelet, Wavelet_Matrix_with_nans)
-        llike_vec.append(llike_val)
-
-    # Convert to array and plot
-    llike_vec_array = np.array(llike_vec)
-    plt.plot(a_range, np.exp(llike_vec_array), '*')
-    plt.plot(a_range, np.exp(llike_vec_array))
-    plt.axvline(x=a_true, c='red', linestyle='--', label="truth")
-    plt.legend()
-    plt.xlabel(r'Amplitude values')
-    plt.ylabel(r'Likelihood')
-    plt.title(f'Likelihood with {TDI} noise and Nf = {Nf}')
-    plt.savefig(os.path.join(OUTDIR, f"likelihood_{TDI}_Nf_{Nf}.pdf"), bbox_inches="tight")
 
 
-def main(
-    a_true=1e-21,
-    f_true = 3e-3,
-    fdot_true = 1e-8,
-    start_gap = 4,
-    end_gap = 6,
-    Nf = 16,
-    tmax = 10 * ONE_HOUR,
+def gap_hwavelet_generator(a, f, fdot, gap:GapWindow, Nf, windowing=True, alpha=0.0, filter=True)->Wavelet:
+    ht = waveform_generator(a, f, fdot, gap.t, alpha)
+    return generate_wavelet_with_gap(gap, ht, Nf, windowing=windowing, alpha=alpha, filter=filter)
+
+
+def generate_data(
+    a_true=A_TRUE,
+    f_true = F_TRUE,
+    fdot_true = FDOT_TRUE,
+    start_gap = START_GAP,
+    end_gap = END_GAP,
+    Nf = NF,
+    tmax = TMAX,
+    plot=False,
 ):
-    fs = 2 * f_true
-    delta_t = np.floor(0.4 / fs)
-    t = np.arange(0, tmax, delta_t)
-    N = int(2 ** np.ceil(np.log2(len(t))))
-
-    # Generate signal and apply tapering
-    h_t = waveform(a_true, f_true, fdot_true, t)
-    h_t_pad = zero_pad(h_t * tukey(len(h_t), alpha=0.0))
-    t_pad = np.arange(0, len(h_t_pad) * delta_t, delta_t)
-
-    # Frequency domain
-    h_true_f = np.fft.rfft(h_t_pad)
-    freq = np.fft.rfftfreq(N, delta_t)
-    freq[0] = freq[1]
-
-    PSD = CornishPowerSpectralDensity(freq)
-    SNR = compute_snr_freq(h_true_f, PSD, delta_t, N)
-    print(f"SNR of source: {SNR}")
-
-    # Wavelet domain
-    signal_f_series = FrequencySeries(data=h_true_f, freq=freq)
-    psd = FrequencySeries(data=PSD, freq=freq)
-    h_wavelet = from_freq_to_wavelet(signal_f_series, Nf=Nf)
+    ht, hf = generate_padded_signal(a_true, f_true, fdot_true, tmax)
+    h_wavelet = from_freq_to_wavelet(hf, Nf=Nf)
+    psd = FrequencySeries(
+        data=CornishPowerSpectralDensity(hf.freq),
+        freq=hf.freq
+    )
     psd_wavelet = evolutionary_psd_from_stationary_psd(
         psd=psd.data, psd_f=psd.freq, f_grid=h_wavelet.freq,
-        t_grid=h_wavelet.time, dt=delta_t
+        t_grid=h_wavelet.time, dt=hf.dt
     )
-    SNR_wavelet = compute_snr(h_wavelet, psd_wavelet.data)
-    print(f"SNR in wavelet domain: {SNR_wavelet}")
+    print(f"SNR (hf, no gaps): {compute_snr_freq(hf.data, psd.data, hf.dt, hf.ND)}")
+    print(f"SNR (hw, no gaps): {compute_snr(h_wavelet, psd_wavelet)}")
 
-    # Gap handling and plotting
-    w_t = gap_routine_nan(t_pad, start_gap, end_gap, delta_t)
-    h_pad_w = w_t * h_t_pad
-    plot_waveform_with_gaps(t_pad, h_pad_w, start_gap, end_gap, plot_dir=OUTDIR)
+    # Gap data
+    gap = GapWindow(ht.time, start_gap, end_gap, )
+    chunks = chunk_timeseries(ht, gap)
+    hwavelet_with_gap = generate_wavelet_with_gap(
+        gap, ht, Nf, windowing=True, alpha=0.0, filter=True
+    )
+    psd_wavelet_with_gap = gap.apply_nan_gap_to_wavelet(psd_wavelet)
+    print(f"SNR (hw, with gaps): {compute_snr(hwavelet_with_gap, psd_wavelet_with_gap)}")
 
-    # Stitched data and likelihood
-    h_approx_stitched_data, mask = stitch_together_data_wavelet(w_t, t_pad, h_t_pad, Nf, delta_t, start_gap, end_gap,
-                                                                windowing=True, alpha=0.0, filter=True)
-    Wavelet_Matrix_with_nans = psd_wavelet.data.copy()
-    Wavelet_Matrix_with_nans[:, ~mask] = np.nan
+    if plot:
+        fig, ax = plt.subplots(3, 1, sharex=True, figsize=(10, 10))
+        for i in range(2):
+            chunks[i].plot(ax=ax[0], color=f"C{i}", label=f"Chunk {i}")
+        hwavelet_with_gap.plot(ax=ax[1], show_colorbar=False)
+        psd_wavelet_with_gap.plot(ax=ax[2], show_colorbar=False)
+        for a in ax:
+            a.axvspan(start_gap, end_gap, facecolor='k', alpha=0.2)
+            a.axvspan(start_gap, end_gap, edgecolor='k', hatch='/', zorder=10, fill=False)
+        ax[0].set_xlim(0, tmax)
+        plt.subplots_adjust(hspace=0)
+        plt.savefig(os.path.join(OUTDIR, "gaped_data.pdf"), bbox_inches="tight")
 
-    # Likelihood calculation and plotting
-    precision = a_true / np.sqrt(np.nansum(h_wavelet.data ** 2 / Wavelet_Matrix_with_nans))
-    a_range = np.linspace(a_true - 5 * precision, a_true + 5 * precision, 200)
-    generate_likelihood(a_range, t, w_t, t_pad, delta_t, start_gap, end_gap, Nf, h_approx_stitched_data,
-                        Wavelet_Matrix_with_nans, f_true, fdot_true, a_true, TDI="Cornish")
+    return hwavelet_with_gap, psd_wavelet_with_gap, gap
+
+
 
 
 if __name__ == "__main__":
-    main()
+    generate_data(plot=True)
+
