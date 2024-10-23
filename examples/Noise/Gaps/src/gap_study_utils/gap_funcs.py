@@ -116,11 +116,12 @@ def regularise_matrix(Cov_Matrix, window, tol = 0.01):
 
 
 class GapWindow:
-    def __init__(self, t:np.ndarray, start:float, end:float):
+    def __init__(self, t:np.ndarray, start:float, end:float, tmax:float):
         self.gap_start = start
         self.gap_end = end
         self.nan_mask = self.__generate_nan_mask(t, start, end)
         self.t = t
+        self.tmax = tmax # Note-- t[-1] is not necessarily tmax -- might be padded.
         # first idx od nan
         self.start_idx = np.argmax(self.nan_mask)
         # last idx of nanx
@@ -193,7 +194,7 @@ class GapWindow:
             Wavelet with NaN values in the gap window.
 
         """
-        data, t = w.data, w.time
+        data, t = w.data.copy(), w.time
         nan_mask = self.get_nan_mask_for_timeseries(t)
         time_mask = self.inside_timeseries(t)
         data[:, nan_mask] = np.nan
@@ -210,7 +211,7 @@ class GapWindow:
         return (self.gap_start <= t) & (t <= self.gap_end)
 
     def inside_timeseries(self, t:np.ndarray):
-        return (self.t[0] <= t) & (t <= self.t[-1])
+        return (self.t[0] <= t) & (t <= self.tmax)
 
     def valid_t(self, t:float):
         # if t inside timeseries and outside gap, True

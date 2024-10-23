@@ -6,7 +6,7 @@ from pywavelet.transforms import (from_freq_to_wavelet, from_time_to_wavelet)
 from pywavelet.transforms.forward.wavelet_bins import compute_bins
 
 from .gap_funcs import GapWindow
-from .signal_utils import zero_pad
+from .signal_utils import zero_pad, waveform_generator
 from typing import List
 
 import matplotlib.pyplot as plt
@@ -33,6 +33,13 @@ def chunk_timeseries(ht:TimeSeries, gap:GapWindow, windowing_alpha:float=0, filt
     return chunks
 
 
+def gap_hwavelet_generator(a:float, ln_f:float, ln_fdot:float, gap:GapWindow, Nf:int, windowing=True, alpha=0.0, filter=True)->Wavelet:
+    f, fdot = np.exp(ln_f), np.exp(ln_fdot)
+    ht = waveform_generator(a, f, fdot, gap.t, alpha)
+    return generate_wavelet_with_gap(gap, ht, Nf, windowing=windowing, alpha=alpha, filter=filter)
+
+
+
 def generate_wavelet_with_gap(
         gap: GapWindow,
         ht:TimeSeries,
@@ -40,7 +47,6 @@ def generate_wavelet_with_gap(
         windowing=False,
         alpha=0,
         filter=False,
-        **kwargs
 ):
     chunked_timeseries = chunk_timeseries(ht, gap, windowing_alpha=alpha, filter=filter)
     chunked_wavelets = [from_freq_to_wavelet(chunk.to_frequencyseries(), Nf) for chunk in chunked_timeseries]
@@ -68,7 +74,10 @@ def generate_wavelet_with_gap(
         # fill in the values from the chunked wavelet
         stiched_data[:, stich_tmask] = chunked_wavelets[i].data[:, w_tmask]
 
-    return Wavelet(stiched_data, time_bins, freq_bins)
+
+    # onnly keep data up to tmax
+    tmask = time_bins <= gap.tmax
+    return Wavelet(stiched_data[:, tmask], time_bins[tmask], freq_bins)
 
 
 def bandpass_data(rawstrain, f_min_bp, fs, bandpassing_flag=False, order=4):
