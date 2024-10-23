@@ -24,6 +24,9 @@ classifiers = [
 ]
 dependencies = [
     "numpy",
+    "arviz",
+    "bilby",
+    "gif",
     "numba",
     "matplotlib",
     "tqdm",
