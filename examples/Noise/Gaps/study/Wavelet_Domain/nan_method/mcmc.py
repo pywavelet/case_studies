@@ -52,7 +52,7 @@ def main(
         end_gap=END_GAP,
         Nf=NF,
         tmax=TMAX,
-        n_iter=10000,
+        n_iter=25000,
         nwalkers=32
 ):
     plot_prior()
