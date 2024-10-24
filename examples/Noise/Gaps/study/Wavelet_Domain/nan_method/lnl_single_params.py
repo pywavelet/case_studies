@@ -55,7 +55,7 @@ def main(
         end_gap=END_GAP,
         Nf=NF,
         tmax=TMAX,
-        N_points=15
+        N_points=25
 ):
     hwavelet, psd, gap = generate_data(a_true, ln_f_true, ln_fdot_true, start_gap, end_gap, Nf, tmax)
 
