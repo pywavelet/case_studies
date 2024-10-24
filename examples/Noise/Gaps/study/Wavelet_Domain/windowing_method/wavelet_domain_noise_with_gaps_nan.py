@@ -12,7 +12,7 @@ from pywavelet.transforms.types.plotting import plot_wavelet_grid
 
 from gap_study_utils.signal_utils import zero_pad, inner_prod, waveform
 from gap_study_utils.noise_curves import noise_PSD_AE
-from gap_study_utils.wavelet_data_utils import stitch_together_data_wavelet, bandpass_data
+from gap_study_utils.wavelet_data_utils import generate_wavelet_with_gap, bandpass_data
 
 # Constants
 np.random.seed(1234)
@@ -23,8 +23,8 @@ def gap_routine_nan(t, start_window, end_window, delta_t=10):
     """
     Function to insert NaNs into a time series during a specific gap.
     """
-    start_window *= ONE_HOUR  # Define start of gap
-    end_window *= ONE_HOUR  # Define end of gap
+    start_window *= ONE_HOUR  # Define gap_start of gap
+    end_window *= ONE_HOUR  # Define gap_end of gap
 
     nan_window = [
         (

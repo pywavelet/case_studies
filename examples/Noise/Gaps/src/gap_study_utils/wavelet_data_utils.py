@@ -3,104 +3,81 @@ from scipy.signal.windows import tukey
 from scipy.signal import butter, filtfilt
 from pywavelet.transforms.types import FrequencySeries, TimeSeries, Wavelet
 from pywavelet.transforms import (from_freq_to_wavelet, from_time_to_wavelet)
+from pywavelet.transforms.forward.wavelet_bins import compute_bins
 
-from .signal_utils import zero_pad
+from .gap_funcs import GapWindow
+from .signal_utils import zero_pad, waveform_generator
+from typing import List
+
+import matplotlib.pyplot as plt
 
 
-def stitch_together_data_wavelet(w_t: np.ndarray, t: np.ndarray, h_pad_w: np.ndarray, Nf: int, delta_t: float,
-                                 start_window: int, end_window: int, windowing=False, alpha=0, filter=False, **kwargs):
-    start_index_gap = np.argwhere(np.isnan(w_t) == True)[0][0]
-    end_index_gap = np.argwhere(np.isnan(w_t) == True)[-1][0]
+def chunk_timeseries(ht:TimeSeries, gap:GapWindow, windowing_alpha:float=0, filter:bool=False)->List[TimeSeries]:
+    """
+    Split a TimeSeries object into two chunks based on the gap window.
+    """
+    chunks = [
+        TimeSeries(ht.data[0:gap.start_idx],ht.time[0:gap.start_idx]),
+        TimeSeries(ht.data[gap.end_idx + 1:], ht.time[gap.end_idx + 1:])
+    ]
 
-    # ================= PROCESS CHUNK 1 ===================
-    kwgs_chunk_1 = dict(Nf=Nf)
-    h_chunk_1 = h_pad_w[0:start_index_gap]
-    if windowing == True:
-        taper = tukey(len(h_chunk_1), alpha)
-        h_chunk_1 = bandpass_data(taper * h_chunk_1, 7e-4, 1 / delta_t, bandpassing_flag=filter, order=4)
-    else:
-        taper = tukey(len(h_chunk_1), 0.0)
-        h_chunk_1 = bandpass_data(taper * h_chunk_1, 7e-4, 1 / delta_t, bandpassing_flag=filter, order=4)
+    for i in range(2):
+        d = chunks[i].data
+        taper = tukey(len(d), alpha=windowing_alpha)
+        d = bandpass_data(d*taper, 7e-4, 1 / ht.dt, bandpassing_flag=filter, order=4)
+        d = zero_pad(d)
+        ## THIS MUCKS UP THE TIME VECTOR?? Now the len of chunks + gap != orig
+        t = np.arange(0, len(d) * ht.dt, ht.dt) + chunks[i].time[0]
+        chunks[i] = TimeSeries(d, t)
 
-    h_chunk_1_pad = zero_pad(h_chunk_1 * taper)
-    ND_1 = len(h_chunk_1_pad)
-    Nf_1 = Nf
-    kwgs_chunk_2 = dict(Nf=Nf_1)
-    freq_bin_1 = np.fft.rfftfreq(ND_1, delta_t);
-    freq_bin_1[0] = freq_bin_1[0]
-    h_chunk_1_f = np.fft.rfft(h_chunk_1_pad)
-    h_chunk_1_freq_series = FrequencySeries(h_chunk_1_f, freq=freq_bin_1)
-    h_chunk_1_wavelet = from_freq_to_wavelet(h_chunk_1_freq_series, **kwgs_chunk_1)
+    return chunks
 
-    # ================= PROCESS CHUNK 2 ===================
-    h_chunk_2 = h_pad_w[end_index_gap + 1:]
-    if windowing == True:
-        taper = tukey(len(h_chunk_2), alpha)
-        h_chunk_2 = bandpass_data(taper * h_chunk_2, 7e-4, 1 / delta_t, bandpassing_flag=filter, order=4)
-    else:
-        taper = tukey(len(h_chunk_2), 0.0)
-        h_chunk_2 = bandpass_data(taper * h_chunk_2, 7e-4, 1 / delta_t, bandpassing_flag=filter, order=4)
-    h_chunk_2_pad = zero_pad(h_chunk_2 * taper)
-    ND_2 = len(h_chunk_2_pad)
-    Nf_2 = Nf
-    kwgs_chunk_2 = dict(Nf=Nf_2)
-    freq_bin_2 = np.fft.rfftfreq(ND_2, delta_t);
-    freq_bin_2[0] = freq_bin_2[0]
-    h_chunk_2_f = np.fft.rfft(h_chunk_2_pad)
-    h_chunk_2_f_freq_series = FrequencySeries(h_chunk_2_f, freq=freq_bin_2)
-    h_chunk_2_wavelet = from_freq_to_wavelet(h_chunk_2_f_freq_series, **kwgs_chunk_2)
 
-    # ===================== Now need to stitch together the data sets =========
+def gap_hwavelet_generator(a:float, ln_f:float, ln_fdot:float, gap:GapWindow, Nf:int, windowing=True, alpha=0.0, filter=True)->Wavelet:
+    f, fdot = np.exp(ln_f), np.exp(ln_fdot)
+    ht = waveform_generator(a, f, fdot, gap.t, alpha)
+    return generate_wavelet_with_gap(gap, ht, Nf, windowing=windowing, alpha=alpha, filter=filter)
 
-    # Extract the time bins of wavelet data set 1
-    wavelet_time_bins_chunk_1 = h_chunk_1_wavelet.time
 
-    # Create mask. True for when wavelet times < start window. False otherwise
-    mask_chunk_1 = wavelet_time_bins_chunk_1 < start_window * 60 * 60
 
-    # Force data within gap to be nans for chunk 1 
-    h_chunk_1_w_nans = h_chunk_1_wavelet.data.copy()
-    h_chunk_1_w_nans[:, ~mask_chunk_1] = np.nan
+def generate_wavelet_with_gap(
+        gap: GapWindow,
+        ht:TimeSeries,
+        Nf: int,
+        windowing=False,
+        alpha=0,
+        filter=False,
+):
+    chunked_timeseries = chunk_timeseries(ht, gap, windowing_alpha=alpha, filter=filter)
+    chunked_wavelets = [from_freq_to_wavelet(chunk.to_frequencyseries(), Nf) for chunk in chunked_timeseries]
+    # ensure any gaps are filled with nans and truncate wavelets to the correct time
+    # (i.e. get rid of padding added for FFT)
+    chunked_wavelets = [gap.apply_nan_gap_to_wavelet(w) for w in chunked_wavelets]
 
-    # Chunk 2 has no gaps. The signal starts outside the gap and is just 
-    # zero padded. This extra zero padding contributes nothing and we can
-    # remove it to match with the original data set. 
+    # setting up final wavelet
+    Nt = ht.ND // Nf
+    time_bins, freq_bins = compute_bins(Nf, Nt, ht.duration)
+    stiched_data = np.full((Nf, Nt), np.nan)
 
-    # Extract wavelet time bins full signal. This is still general, could get this
-    # from the fitted window function. 
-    w_t_TimeSeries = TimeSeries(w_t, t)
-    w_t_wavelet = from_time_to_wavelet(w_t_TimeSeries, Nf)
-    wavelet_times_full_signal = w_t_wavelet.time
-    Nt = w_t_wavelet.data.shape[1]  # Extract Nt of full data set
-    # Generate mask. True outside of gap, false inside gap
-    mask = (wavelet_times_full_signal < start_window * 60 * 60) | (wavelet_times_full_signal > end_window * 60 * 60)
-    # Compute number of indices where gap exists (count true number of nans in full data set )
-    N_time_indices_for_gaps_full_signal = len(mask) - sum(mask)
-    # Compute the number of indices where gap exists in chunk 1
-    N_time_indicies_for_gaps_chunk_1 = len(mask_chunk_1) - sum(mask_chunk_1)
-    # Compute number of extra gaps to append in total
-    N_gap_to_append = N_time_indices_for_gaps_full_signal - N_time_indicies_for_gaps_chunk_1
 
-    h_chunk_1_wavelet_matrix = h_chunk_1_wavelet.data
-    # Create a matrix of NaNs with the same number of rows and N_gap_to_append columns
-    nan_columns = np.full((h_chunk_1_wavelet_matrix.shape[0], N_gap_to_append), np.nan)
-    h_chunk_1_wavelet_matrix_with_gaps = np.concatenate((h_chunk_1_w_nans, nan_columns), axis=1)
+    for i, w in enumerate(chunked_wavelets):
+        # get idx of the time_bins that correspond to the t
+        stich_tmask = np.zeros(Nt, dtype=bool)
+        stich_tmask[np.argmin(np.abs(time_bins[:, None] - w.time), axis=0)] = True
 
-    # Concatenate chunk 1 and chunk 2. This will have new Nt dimensions larger than old Nt
-    h_chunk_1_and_chunk_2 = np.concatenate((h_chunk_1_wavelet_matrix_with_gaps, h_chunk_2_wavelet.data), axis=1)
+        # get mask to ensure we only use t values inside time_bins
+        w_tmask = np.zeros(w.Nt, dtype=bool)
+        w_tmask[np.argmin(np.abs(w.time[:, None] - time_bins), axis=0)] = True
 
-    # Crop the remaining values of Nt. Due to zero padding, they're zero anyway. 
-    h_approx_stitched_data = h_chunk_1_and_chunk_2[:, :Nt]
-    # The matrix above has dimensions the same as the original data set :). Nf must be fixed. 
-    # This is general and is the general structure from time -> freq -> wavelet for given gapped data set
+        # check no values already in that region
+        # assert np.all(np.isnan(stiched_data[:, stich_tmask]))
+        # fill in the values from the chunked wavelet
+        stiched_data[:, stich_tmask] = chunked_wavelets[i].data[:, w_tmask]
 
-    h_stiched_wavelet = Wavelet(
-        h_approx_stitched_data,
-        time=w_t_wavelet.time,
-        freq=w_t_wavelet.freq
-    )
 
-    return h_stiched_wavelet, mask
+    # onnly keep data up to tmax
+    tmask = time_bins <= gap.tmax
+    return Wavelet(stiched_data[:, tmask], time_bins[tmask], freq_bins)
 
 
 def bandpass_data(rawstrain, f_min_bp, fs, bandpassing_flag=False, order=4):
