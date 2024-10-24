@@ -1,6 +1,7 @@
 import emcee
 from wavelet_domain_noise_with_gaps_nan import lnl, gap_hwavelet_generator, generate_data
 from constants import A_TRUE, LN_F_TRUE, LN_FDOT_TRUE, START_GAP, END_GAP, NF, TMAX, ONE_HOUR, OUTDIR, PRIOR, TRUES, CENTERED_PRIOR
+from multiprocessing import (get_context,cpu_count)
 from scipy.stats import uniform
 import numpy as np
 import corner
@@ -52,18 +53,23 @@ def main(
         end_gap=END_GAP,
         Nf=NF,
         tmax=TMAX,
-        n_iter=25000,
+        n_iter=2500,
         nwalkers=32
 ):
     plot_prior()
     data, psd, gap = generate_data(a_true, ln_f_true, ln_fdot_true, start_gap, end_gap, Nf, tmax)
 
 
-    x0 = sample_prior(CENTERED_PRIOR, nwalkers)
+
+    # x0 = sample_prior(CENTERED_PRIOR, nwalkers) # Starting coordinates
+    x0 = sample_prior(PRIOR, nwalkers) # Starting coordinates
     nwalkers, ndim = x0.shape
 
+    # Allow for multiprocessing
+    N_cpus = cpu_count()
+    pool = get_context("fork").Pool(N_cpus)        # M1 chip -- allows multiprocessing
     sampler = emcee.EnsembleSampler(
-        nwalkers, ndim, log_probability, args=(gap, Nf, data, psd)
+        nwalkers, ndim, log_probability, args=(gap, Nf, data, psd), pool = pool,
     )
     sampler.run_mcmc(x0, n_iter, progress=True)
 
