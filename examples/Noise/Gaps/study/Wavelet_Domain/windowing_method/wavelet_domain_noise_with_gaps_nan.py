@@ -131,6 +131,8 @@ def plot_wavelets(h_wavelet, cov_matrix_wavelet, h_wavelet_gap, cov_matrix_gap_w
                       zscale="linear", freq_scale="linear", absolute=False, freq_range=freq_range)
     ax[0, 1].set_title("Signal wavelet matrix")
 
+
+    breakpoint()
     plot_wavelet_grid(cov_matrix_gap_wavelet, time_grid=noise_gap_wavelet.time / 60 / 60,
                       freq_grid=noise_gap_wavelet.freq,
                       ax=ax[1, 0], zscale="linear", freq_scale="linear", absolute=False, freq_range=freq_range,
@@ -193,6 +195,7 @@ def main(
 
     # Covariance matrices
     cov_matrix_wavelet, cov_matrix_gap_wavelet = compute_covariance_matrices(noise_wavelet_matrix, noise_gap_wavelet_matrix)
+    breakpoint()
 
     # Apply gaps to signal and retransform to wavelet domain
     h_t_gap = h_t_pad * w_t
@@ -203,6 +206,7 @@ def main(
     print("SNR with gaps in wavelet domain:", np.sqrt(SNR_gap_wavelet))
 
     # Plot
+    breakpoint()
     plot_wavelets(h_wavelet, cov_matrix_wavelet, h_wavelet_gap, cov_matrix_gap_wavelet, psd_wavelet,
                               h_wavelet_gap, Nf, N, start_window, end_window, lobe_length, tmax)
 
