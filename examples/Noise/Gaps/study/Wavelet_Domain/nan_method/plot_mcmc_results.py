@@ -63,7 +63,7 @@ def plot_corner():
     trues[0] = np.log(trues[0])
     ranges = RANGES.copy()
     ranges[0] = np.log(ranges[0])
-    corner.corner(IDATA, truths=trues, labels=["log_a", "ln_f", "ln_fdot"])
+    corner.corner(idata, truths=trues, labels=["log_a", "ln_f", "ln_fdot"])
     plt.savefig("corner.png")
 
 def main(
@@ -76,6 +76,7 @@ def main(
         tmax=TMAX,
 ):
     plot_corner()
+    # plot_trace()
     hdata, psd, gap = generate_data(a_true, ln_f_true, ln_fdot_true, start_gap, end_gap, Nf, tmax)
     kwgs = dict(gap=gap, Nf=Nf)
     make_gif(hdata, kwgs)
