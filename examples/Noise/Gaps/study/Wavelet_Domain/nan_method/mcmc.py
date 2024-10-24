@@ -59,11 +59,18 @@ def main(
     plot_prior()
     data, psd, gap = generate_data(a_true, ln_f_true, ln_fdot_true, start_gap, end_gap, Nf, tmax)
 
-
-
-    # x0 = sample_prior(CENTERED_PRIOR, nwalkers) # Starting coordinates
     x0 = sample_prior(PRIOR, nwalkers) # Starting coordinates
     nwalkers, ndim = x0.shape
+
+    # Check likelihood
+    true_params = [A_TRUE, LN_F_TRUE, LN_FDOT_TRUE]
+    llike_val = lnl(*true_params, gap, Nf, data, psd)
+    print("Value of likelihood at true values is", llike_val)
+    # Check data gen and signal gen 
+    h_gen = gap_hwavelet_generator(*true_params, gap, Nf, filter = True) 
+    check = (h_gen.data - data.data)
+    print("Check:", np.nansum((h_gen.data - data.data)**2))
+    breakpoint()
 
     # Allow for multiprocessing
     N_cpus = cpu_count()

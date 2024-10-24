@@ -24,7 +24,7 @@ def chunk_timeseries(ht:TimeSeries, gap:GapWindow, windowing_alpha:float=0, filt
     for i in range(2):
         d = chunks[i].data
         taper = tukey(len(d), alpha=windowing_alpha)
-        d = bandpass_data(d*taper, 7e-4, 1 / ht.dt, bandpassing_flag=filter, order=4)
+        # d = bandpass_data(d*taper, 7e-4, 1 / ht.dt, bandpassing_flag=filter, order=4)
         d = zero_pad(d)
         ## THIS MUCKS UP THE TIME VECTOR?? Now the len of chunks + gap != orig
         t = np.arange(0, len(d) * ht.dt, ht.dt) + chunks[i].time[0]
@@ -33,7 +33,7 @@ def chunk_timeseries(ht:TimeSeries, gap:GapWindow, windowing_alpha:float=0, filt
     return chunks
 
 
-def gap_hwavelet_generator(a:float, ln_f:float, ln_fdot:float, gap:GapWindow, Nf:int, windowing=True, alpha=0.0, filter=True)->Wavelet:
+def gap_hwavelet_generator(a:float, ln_f:float, ln_fdot:float, gap:GapWindow, Nf:int, windowing=True, alpha=0.0, filter=False)->Wavelet:
     f, fdot = np.exp(ln_f), np.exp(ln_fdot)
     ht = waveform_generator(a, f, fdot, gap.t, alpha)
     return generate_wavelet_with_gap(gap, ht, Nf, windowing=windowing, alpha=alpha, filter=filter)
