@@ -1,5 +1,5 @@
-from gap_study_utils.signal_utils import generate_padded_signal
-from gap_study_utils.gap_funcs import GapWindow
+from case_studies.examples.LISA.lisa_wavelet_mcmc import h_wavelet
+from case_studies.examples.Noise.Gaps.tests.conftest import ln_f_true, ln_fdot_true
 from gap_study_utils.wavelet_data_utils import chunk_timeseries, generate_wavelet_with_gap, gap_hwavelet_generator
 from gap_study_utils.wavelet_data_utils import from_freq_to_wavelet
 from pywavelet.transforms import from_freq_to_wavelet
@@ -9,49 +9,12 @@ import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 import numpy as np
 
-ONE_HOUR = 60 * 60
-ONE_DAY = 24 * ONE_HOUR
-a_true = 1e-21
-ln_f_true = np.log(3e-3)
-ln_fdot_true = np.log(1e-8)
 
-# ollie's settings
-# tmax = 18.773 * ONE_HOUR
-# Nf = 16
-
-
-Nf = 64
-tmax = 4 * ONE_DAY
-start_gap = tmax * 0.45
-end_gap = start_gap + 2 * ONE_HOUR
-
-
-def generate_data(a_true, ln_f_true, ln_fdot_true, tmax):
-    ht, hf = generate_padded_signal(
-        a_true, ln_f_true, ln_fdot_true, tmax
-    )
-    gap = GapWindow(ht.time, start_gap, end_gap, tmax=tmax)
-    h_stiched_wavelet = generate_wavelet_with_gap(gap, ht, Nf)
-    return ht, hf, gap, h_stiched_wavelet
-
-
-def test_lnl(plot_dir):
-    ht,_, gap, hdata = generate_data(a_true, ln_f_true, ln_fdot_true, tmax)
-    htemplate = gap_hwavelet_generator(a_true, ln_f_true, ln_fdot_true, gap, Nf)
-    psd = Wavelet(np.ones_like(htemplate.data), htemplate.time, htemplate.freq)
-    lnl = compute_likelihood(hdata, htemplate, psd)
-
-    fig, axes = plt.subplots(2, 1, figsize=(10, 10))
-    hdata.plot(ax=axes[0], label="Data")
-    htemplate.plot(ax=axes[1], label="Template")
-    # suptitle LnL
-    fig.suptitle(f"LnL: {lnl}")
-    plt.tight_layout()
-    fig.savefig(f"{plot_dir}/lnl.png")
-
-
-def test_chunked_timeseries(plot_dir):
-    ht, hf, gap, h_stiched_wavelet = generate_data(a_true, ln_f_true, ln_fdot_true, tmax)
+def test_chunked_timeseries(plot_dir, test_data):
+    ht = test_data.ht
+    gap = test_data.gap
+    h_stiched_wavelet = test_data.hwavelet_gap
+    a_true, ln_f_true, ln_fdot_true = test_data.trues
     chunks = chunk_timeseries(ht, gap)
     chunksf = [c.to_frequencyseries() for c in chunks]
     chunkd_wavelets = [from_freq_to_wavelet(chunk.to_frequencyseries(), 16) for chunk in chunks]
@@ -67,7 +30,7 @@ def test_chunked_timeseries(plot_dir):
     for i in range(2):
         assert chunkd_wavelets[i].time[0] == chunks[i].time[0]
 
-    _plot(chunks, chunksf, chunkd_wavelets, h_stiched_wavelet, gap, tmax, start_gap, end_gap, plot_dir)
+    _plot(chunks, chunksf, chunkd_wavelets, h_stiched_wavelet, gap, gap.tmax, gap.start_gap, end_gap, plot_dir)
 
 
 def _plot(chunks, chunksf, chunkd_wavelets, h_stiched_wavelet, gap, tmax, start_gap, end_gap, plot_dir):
