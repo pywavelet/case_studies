@@ -22,7 +22,7 @@ def lnl(a, ln_f, ln_fdot, gap, Nf, data, psd, windowing=False, alpha=0.0, filter
     htemplate = gap_hwavelet_generator(a, ln_f, ln_fdot, gap, Nf, windowing=windowing, alpha=alpha, filter=filter)
     return compute_likelihood(data, htemplate, psd)
 
-def generate_stat_noise(ht, psd, seed_no = 0):
+def generate_stat_noise(ht, psd, seed_no = 0, TD = True):
     """
     Inputs  ht: TimeSeries
             psd: FrequencySeries
@@ -45,11 +45,13 @@ def generate_stat_noise(ht, psd, seed_no = 0):
     noise_f[-1] = np.sqrt(2)*noise_f[-1].real
 
     # Convert to time-series
-    noise_t = np.fft.irfft(noise_f)
-    # Cast as TimeSeries object
-    noise_TS = TimeSeries(noise_t, ht.time)
-    return noise_TS
-
+    if TD == True:
+        noise_t = np.fft.irfft(noise_f)
+        # Cast as TimeSeries object
+        return TimeSeries(noise_t, ht.time)
+    else:
+        return FrequencySeries(noise_f, psd.freq)
+    
 
 
 def generate_data(
@@ -61,6 +63,7 @@ def generate_data(
     Nf = NF,
     tmax = TMAX,
     noise_realisation = False,
+    seed_no = 11_07_1993,
     windowing = False,
     alpha = 0.0,
     filter = False,
@@ -86,14 +89,15 @@ def generate_data(
     print(f"SNR (hw, no gaps): {compute_snr(h_wavelet, psd_wavelet)}")
 
     # Generate data
-    noise_t = generate_stat_noise(ht,psd, seed_no = 11_07_1993)
+    noise_t = generate_stat_noise(ht,psd, seed_no = seed_no)
 
     data_stream = TimeSeries(ht.data + flag*noise_t.data, ht.time)
     # Gap data
     gap = GapWindow(data_stream.time, start_gap, end_gap, tmax=tmax)
     chunks = chunk_timeseries(data_stream, gap)
     data_wavelet_with_gap = generate_wavelet_with_gap(
-        gap, data_stream, Nf, windowing=windowing, alpha=alpha, filter=filter
+        gap, data_stream, Nf, 
+        windowing=windowing, alpha=alpha, filter=filter
     )
     psd_wavelet_with_gap = gap.apply_nan_gap_to_wavelet(psd_wavelet)
     print(f"SNR (hw, with gaps): {compute_snr(data_wavelet_with_gap, psd_wavelet_with_gap)}")
