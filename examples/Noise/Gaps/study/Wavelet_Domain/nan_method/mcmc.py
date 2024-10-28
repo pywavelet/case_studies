@@ -26,11 +26,13 @@ def sample_prior(prior, n_samples=1):
     return np.array(list(prior.sample(n_samples).values())).T
 
 
-def log_probability(theta, gap, Nf, data, psd):
+def log_posterior(theta, gap, Nf, data, psd, windowing, alpha, filter):
     lp = log_prior(theta)
     if not np.isfinite(lp):
         return -np.inf
-    return lp + lnl(*theta, gap, Nf, data, psd)
+    else:
+        lp = 0.0
+    return lp + lnl(*theta, gap, Nf, data, psd, windowing = windowing, alpha = alpha, filter = filter)
 
 
 def plot_prior():
@@ -56,27 +58,33 @@ def main(
         n_iter=2500,
         nwalkers=32
 ):
+    
+    windowing, alpha = False, 0.0 # Set this parameter if you want to window (reduce leakage)
+    filter = True # Set this parameter if you wish to apply a high pass filter
+    noise_realisation = True
+
     plot_prior()
-    data, psd, gap = generate_data(a_true, ln_f_true, ln_fdot_true, start_gap, end_gap, Nf, tmax)
+    data, psd, gap = generate_data(a_true, ln_f_true, ln_fdot_true, 
+                                    start_gap, end_gap, Nf, tmax, 
+                                    windowing = windowing,
+                                    alpha = alpha,
+                                    filter = filter,
+                                    noise_realisation = noise_realisation)
 
     x0 = sample_prior(PRIOR, nwalkers) # Starting coordinates
     nwalkers, ndim = x0.shape
 
     # Check likelihood
     true_params = [A_TRUE, LN_F_TRUE, LN_FDOT_TRUE]
-    llike_val = lnl(*true_params, gap, Nf, data, psd)
+    llike_val = log_posterior(true_params, gap, Nf, data, psd, windowing = windowing, alpha = alpha, filter = filter)
     print("Value of likelihood at true values is", llike_val)
-    # Check data gen and signal gen 
-    h_gen = gap_hwavelet_generator(*true_params, gap, Nf, filter = True) 
-    check = (h_gen.data - data.data)
-    print("Check:", np.nansum((h_gen.data - data.data)**2))
-    breakpoint()
 
     # Allow for multiprocessing
     N_cpus = cpu_count()
     pool = get_context("fork").Pool(N_cpus)        # M1 chip -- allows multiprocessing
     sampler = emcee.EnsembleSampler(
-        nwalkers, ndim, log_probability, args=(gap, Nf, data, psd), pool = pool,
+        nwalkers, ndim, log_posterior, args=(gap, Nf, data, psd, windowing, alpha, filter), 
+        pool = pool
     )
     sampler.run_mcmc(x0, n_iter, progress=True)
 
