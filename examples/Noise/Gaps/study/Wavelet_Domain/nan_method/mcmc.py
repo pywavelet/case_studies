@@ -69,7 +69,8 @@ def main(
                                     windowing = windowing,
                                     alpha = alpha,
                                     filter = filter,
-                                    noise_realisation = noise_realisation)
+                                    noise_realisation = noise_realisation,
+                                    seed_no = 11_07_1993)
 
     x0 = sample_prior(PRIOR, nwalkers) # Starting coordinates
     nwalkers, ndim = x0.shape
