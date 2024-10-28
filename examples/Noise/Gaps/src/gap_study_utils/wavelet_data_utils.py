@@ -23,7 +23,7 @@ def chunk_timeseries(ht:TimeSeries, gap:GapWindow, windowing_alpha:float=0, filt
 
     for i in range(2):
         d = chunks[i].data
-        taper = tukey(len(d), alpha=windowing_alpha)
+        # taper = tukey(len(d), alpha=windowing_alpha)
         # d = bandpass_data(d*taper, 7e-4, 1 / ht.dt, bandpassing_flag=filter, order=4)
         d = zero_pad(d)
         ## THIS MUCKS UP THE TIME VECTOR?? Now the len of chunks + gap != orig
