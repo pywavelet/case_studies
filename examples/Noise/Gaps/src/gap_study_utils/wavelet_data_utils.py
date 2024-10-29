@@ -35,7 +35,7 @@ def chunk_timeseries(ht:TimeSeries, gap:GapWindow, windowing_alpha:float=0, filt
 
 def gap_hwavelet_generator(a:float, ln_f:float, ln_fdot:float, gap:GapWindow, Nf:int, windowing=True, alpha=0.0, filter=False)->Wavelet:
     f, fdot = np.exp(ln_f), np.exp(ln_fdot)
-    ht = waveform_generator(a, f, fdot, gap.t, alpha)
+    ht = waveform_generator(a, f, fdot, gap.t, gap.tmax, alpha=alpha)
     return generate_wavelet_with_gap(gap, ht, Nf, windowing=windowing, alpha=alpha, filter=filter)
 
 

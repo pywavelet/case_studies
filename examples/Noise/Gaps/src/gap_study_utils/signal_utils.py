@@ -48,7 +48,7 @@ def zero_pad(data):
     return np.pad(data, (0, int((2**pow_2) - N)), "constant")
 
 
-def waveform_generator(a:float, f:float, fdot:float, t:np.ndarray, alpha:float=0.0)->TimeSeries:
+def waveform_generator(a:float, f:float, fdot:float, t:np.ndarray, tmax:float, alpha:float=0.0)->TimeSeries:
     """
     This function generates the waveform for a given set of parameters.
     """
@@ -56,6 +56,9 @@ def waveform_generator(a:float, f:float, fdot:float, t:np.ndarray, alpha:float=0
     delta_t = t[1] - t[0]
     h_t_pad = zero_pad(h_t * tukey(len(h_t), alpha=alpha))
     t_pad = np.arange(0, len(h_t_pad) * delta_t, delta_t)
+    # TODO: ask ollie if we can do this
+    h_t_pad[t_pad > tmax] = 0
+
     return TimeSeries(
         data=h_t_pad,
         time=t_pad
@@ -70,7 +73,7 @@ def generate_padded_signal(a, ln_f, ln_fdot, tmax, alpha=0)->Tuple[TimeSeries, F
     t = np.arange(0, tmax, delta_t)
     N = int(2 ** np.ceil(np.log2(len(t))))
 
-    ht = waveform_generator(a, f, fdot, t, alpha)
+    ht = waveform_generator(a, f, fdot, t, tmax, alpha, )
     hf = ht.to_frequencyseries()
 
     #TODO: ASK OLLIE :
