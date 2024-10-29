@@ -44,7 +44,6 @@ def __plot_timeseries(timeseries, fname):
 
 def __plot(hdata, htemplate, lnl,gap, fname):
     # Plot comparison
-    breakpoint()
     # Compute wavelet object of difference between data and template
     diff = Wavelet(hdata.data - htemplate.data,
                     htemplate.time, htemplate.freq)
