@@ -79,6 +79,7 @@ def main(
     true_params = [A_TRUE, LN_F_TRUE, LN_FDOT_TRUE]
     llike_val = log_posterior(true_params, gap, Nf, data, psd, windowing = windowing, alpha = alpha, filter = filter)
     print("Value of likelihood at true values is", llike_val)
+    assert llike_val == 0, "Likelihood is not zero at true values!"
 
     # Allow for multiprocessing
     N_cpus = cpu_count()

@@ -4,10 +4,11 @@ import matplotlib.pyplot as plt
 from scipy.signal.windows import tukey
 from tqdm import tqdm
 from matplotlib import colors
+from typing import Tuple, Union
 
 
 from pywavelet.utils import evolutionary_psd_from_stationary_psd, compute_snr, compute_likelihood
-from pywavelet.transforms.types import FrequencySeries, TimeSeries
+from pywavelet.transforms.types import FrequencySeries, TimeSeries, Wavelet
 from pywavelet.transforms import from_freq_to_wavelet
 from gap_study_utils.signal_utils import compute_snr_freq, generate_padded_signal
 from gap_study_utils.noise_curves import noise_PSD_AE, CornishPowerSpectralDensity
@@ -18,11 +19,11 @@ from gap_study_utils.wavelet_data_utils import chunk_timeseries, generate_wavele
 from constants import *
 
 
-def lnl(a, ln_f, ln_fdot, gap, Nf, data, psd, windowing=False, alpha=0.0, filter=False):
+def lnl(a:float, ln_f:float, ln_fdot:float, gap:GapWindow, Nf:int, data:Wavelet, psd:Wavelet, windowing:bool=False, alpha:float=0.0, filter:bool=False)->float:
     htemplate = gap_hwavelet_generator(a, ln_f, ln_fdot, gap, Nf, windowing=windowing, alpha=alpha, filter=filter)
     return compute_likelihood(data, htemplate, psd)
 
-def generate_stat_noise(ht, psd, seed_no = 0, TD = True):
+def generate_stat_noise(ht:TimeSeries, psd:FrequencySeries, seed_no:int = 0, TD:bool = True)->Union[TimeSeries, FrequencySeries]:
     """
     Inputs  ht: TimeSeries
             psd: FrequencySeries
@@ -55,25 +56,46 @@ def generate_stat_noise(ht, psd, seed_no = 0, TD = True):
 
 
 def generate_data(
-    a_true=A_TRUE,
-    ln_f_true = LN_F_TRUE,
-    ln_fdot_true = LN_FDOT_TRUE,
-    start_gap = START_GAP,
-    end_gap = END_GAP,
-    Nf = NF,
-    tmax = TMAX,
-    noise_realisation = False,
-    seed_no = 11_07_1993,
-    windowing = False,
-    alpha = 0.0,
-    filter = False,
-    plotfn="",
-):
+    a_true:float=A_TRUE,
+    ln_f_true:float = LN_F_TRUE,
+    ln_fdot_true:float = LN_FDOT_TRUE,
+    start_gap:float = START_GAP,
+    end_gap:float = END_GAP,
+    Nf:int = NF,
+    tmax:float = TMAX,
+    noise_realisation:bool = False,
+    seed_no:int = 11_07_1993,
+    windowing:bool = False,
+    alpha:float = 0.0,
+    filter:bool = False,
+    plotfn:str="",
+)->Tuple[Wavelet, Wavelet, GapWindow]:
+    """
+    Generate data with gaps and corresponding PSD in the wavelet domain.
 
-    if noise_realisation == True:
-        flag = 1.0
+    :param a_true: Amplitude of the signal.
+    :param ln_f_true: Natural logarithm of the frequency.
+    :param ln_fdot_true: Natural logarithm of the frequency derivative.
+    :param start_gap: Start time of the gap (in seconds).
+    :param end_gap: End time of the gap (in seconds).
+    :param Nf: Number of frequency bins.
+    :param tmax: Maximum time for the signal (in seconds).
+    :param noise_realisation: Flag to include noise realisation.
+    :param seed_no: Seed number for random noise generation.
+    :param windowing: Flag to apply windowing to the signal.
+    :param alpha: Alpha parameter for the windowing function.
+    :param filter: Flag to apply a high-pass filter.
+    :param plotfn: Filename to save the plot.
+
+    :return: Wavelet data, Wavelet PSD, and GapWindow
+    :type: Tuple[Wavelet, Wavelet, GapWindow]
+     Tuple containing the wavelet-transformed data with gaps, the PSD with gaps, and the gap window.
+    """
+
+    if noise_realisation is True:
+        noise_flag = 1.0
     else:
-        flag = 0.0
+        noise_flag = 0.0
 
     ht, hf = generate_padded_signal(a_true, ln_f_true, ln_fdot_true, tmax)
     h_wavelet = from_freq_to_wavelet(hf, Nf=Nf)
@@ -91,7 +113,7 @@ def generate_data(
     # Generate data
     noise_t = generate_stat_noise(ht,psd, seed_no = seed_no)
 
-    data_stream = TimeSeries(ht.data + flag*noise_t.data, ht.time)
+    data_stream = TimeSeries(ht.data + noise_flag*noise_t.data, ht.time)
     # Gap data
     gap = GapWindow(data_stream.time, start_gap, end_gap, tmax=tmax)
     chunks = chunk_timeseries(data_stream, gap)
@@ -102,19 +124,19 @@ def generate_data(
     psd_wavelet_with_gap = gap.apply_nan_gap_to_wavelet(psd_wavelet)
     print(f"SNR (hw, with gaps): {compute_snr(data_wavelet_with_gap, psd_wavelet_with_gap)}")
 
-    fig, axes = plt.subplots(4, 1, figsize=(10, 10), sharex=True)
-    h_wavelet.plot(ax=axes[0], show_colorbar=False, detailed_axes=True)
-    psd_wavelet.plot(ax=axes[1], show_colorbar=False, detailed_axes=True)
-    data_wavelet_with_gap.plot(ax=axes[2], show_colorbar=False, detailed_axes=True)
-    psd_wavelet_with_gap.plot(ax=axes[3], show_colorbar=False, detailed_axes=True)
-    plt.subplots_adjust(hspace=0)
-    for a in axes:
-        a.axvline(tmax, color="red", linestyle="--", label="Gap")
-        a.set_xlabel("")
-        a.set_ylabel("")
-    axes[0].set_xlim(0, tmax*1.1)
-    plt.savefig(os.path.join(OUTDIR, "wavelet_debug.pdf"), bbox_inches="tight")
-
+    # fig, axes = plt.subplots(4, 1, figsize=(10, 10), sharex=True)
+    # h_wavelet.plot(ax=axes[0], show_colorbar=False, detailed_axes=True)
+    # psd_wavelet.plot(ax=axes[1], show_colorbar=False, detailed_axes=True)
+    # data_wavelet_with_gap.plot(ax=axes[2], show_colorbar=False, detailed_axes=True)
+    # psd_wavelet.plot(ax=axes[3], show_colorbar=False, detailed_axes=True)
+    # plt.subplots_adjust(hspace=0)
+    # for a in axes:
+    #     a.axvline(tmax, color="red", linestyle="--", label="Gap")
+    #     a.set_xlabel("")
+    #     a.set_ylabel("")
+    # axes[0].set_xlim(0, tmax*1.1)
+    # plt.savefig(os.path.join(OUTDIR, "wavelet_debug.pdf"), bbox_inches="tight")
+    #
 
 
     if plotfn:
@@ -123,11 +145,11 @@ def generate_data(
             chunks[i].plot(ax=ax[0], color=f"C{i}", label=f"Chunk {i}")
         data_wavelet_with_gap.plot(ax=ax[1], show_colorbar=False)
         psd_wavelet_with_gap.plot(ax=ax[2], show_colorbar=False)
-        # h_wavelet.plot(ax=ax[3], show_colorbar=False)
+        h_wavelet.plot(ax=ax[3], show_colorbar=False)
         for a in ax:
             a.axvspan(start_gap, end_gap, facecolor='k', alpha=0.2)
             a.axvspan(start_gap, end_gap, edgecolor='k', hatch='/', zorder=10, fill=False)
-        ax[0].set_xlim(0, tmax)
+        ax[0].set_xlim(0, tmax*1.1)
         plt.subplots_adjust(hspace=0)
         plt.savefig(os.path.join(OUTDIR, plotfn), bbox_inches="tight")
 
@@ -178,5 +200,5 @@ def generate_data(
 
 
 if __name__ == "__main__":
-    generate_data_ollie(plotfn="gaped_data.png")
+    generate_data(plotfn="gaped_data.png")
 
