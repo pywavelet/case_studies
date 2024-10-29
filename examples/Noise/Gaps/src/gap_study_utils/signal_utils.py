@@ -62,20 +62,18 @@ def waveform_generator(a:float, f:float, fdot:float, t:np.ndarray, alpha:float=0
     )
 
 
-def generate_padded_signal(a, ln_f, ln_fdot, tmax, alpha=0)->Tuple[TimeSeries, FrequencySeries]:
-    f = np.exp(ln_f)
-    fdot = np.exp(ln_fdot)
+def generate_padded_signal(a, f, fdot, tmax, alpha=0)->Tuple[TimeSeries, FrequencySeries]:
     fs = 2 * f
     delta_t = np.floor(0.4 / fs)
     t = np.arange(0, tmax, delta_t)
     N = int(2 ** np.ceil(np.log2(len(t))))
 
     ht = waveform_generator(a, f, fdot, t, alpha)
-    hf = ht.to_frequencyseries()
 
     #TODO: ASK OLLIE :
+    # hf = ht.to_frequencyseries()
     # h_true_f = np.fft.rfft(h_t_pad)
     # freq = np.fft.rfftfreq(N, delta_t)
     # freq[0] = freq[1] <-- IS THIS NECESSARY?
 
-    return ht, hf
+    return ht

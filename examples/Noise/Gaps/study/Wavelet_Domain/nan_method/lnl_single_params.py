@@ -1,5 +1,5 @@
 from wavelet_domain_noise_with_gaps_nan import lnl, gap_hwavelet_generator, generate_data
-from constants import A_TRUE, LN_F_TRUE, LN_FDOT_TRUE, START_GAP, END_GAP, NF, TMAX, ONE_HOUR, OUTDIR, LN_F_RANGE, LN_FDOT_RANGE
+from constants import A_TRUE, F_TRUE, FDOT_TRUE, START_GAP, END_GAP, NF, TMAX, ONE_HOUR, OUTDIR, F_RANGE, FDOT_RANGE
 import numpy as np
 from tqdm import tqdm
 import matplotlib.pyplot as plt
@@ -49,26 +49,26 @@ def make_gif(xparams, lnl_kwargs, waveform_kwarg, hdata):
 
 def main(
         a_true=A_TRUE,
-        ln_f_true=LN_F_TRUE,
-        ln_fdot_true=LN_FDOT_TRUE,
+        f_true=F_TRUE,
+        fdot_true=FDOT_TRUE,
         start_gap=START_GAP,
         end_gap=END_GAP,
         Nf=NF,
         tmax=TMAX,
         N_points=15
 ):
-    hwavelet, psd, gap = generate_data(a_true, ln_f_true, ln_fdot_true, start_gap, end_gap, Nf, tmax)
+    hwavelet, psd, gap = generate_data(a_true, f_true, fdot_true, start_gap, end_gap, Nf, tmax)
 
     precision = a_true / np.sqrt(np.nansum(hwavelet.data ** 2 / psd.data))
     a_range = np.linspace(a_true - 5 * precision, a_true + 5 * precision, N_points)
-    ln_f_range = np.linspace(*LN_F_RANGE, N_points)
-    ln_fdot_range = np.linspace(*LN_FDOT_RANGE, N_points)
+    f_range = np.linspace(*F_RANGE, N_points)
+    fdot_range = np.linspace(*FDOT_RANGE, N_points)
     kwgs = dict(Nf=Nf, gap=gap)
     lnl_kwgs = dict(**kwgs, psd=psd, data=hwavelet)
-    wfm_kwgs = dict(a=a_true, ln_f=ln_f_true, ln_fdot=ln_fdot_true, **kwgs)
+    wfm_kwgs = dict(a=a_true, f=f_true, fdot=fdot_true, **kwgs)
 
 
-    a_lnls_vec = np.array([lnl(_a, ln_f_true, ln_fdot_true, **lnl_kwgs) for _a in tqdm(a_range)])
+    a_lnls_vec = np.array([lnl(_a, f_true, fdot_true, **lnl_kwgs) for _a in tqdm(a_range)])
     make_gif(
         a_range,
         dict(param_name='a', lnl_vec=a_lnls_vec, params=a_range, true_value=a_true),
@@ -76,18 +76,18 @@ def main(
         hwavelet,
     )
 
-    f_lnls_vec = np.array([lnl(a_true, _ln_f, ln_fdot_true,  **lnl_kwgs) for _ln_f in tqdm(ln_f_range)])
+    f_lnls_vec = np.array([lnl(a_true, _f, fdot_true,  **lnl_kwgs) for _f in tqdm(f_range)])
     make_gif(
-        ln_f_range,
-        dict(param_name='ln_f', lnl_vec=f_lnls_vec, params=ln_f_range, true_value=ln_f_true),
+        f_range,
+        dict(param_name='f', lnl_vec=f_lnls_vec, params=f_range, true_value=f_true),
         wfm_kwgs,
         hwavelet,
     )
 
-    ln_fdot_lnls_vec = np.array([lnl(a_true,ln_f_true, _ln_fdot, **lnl_kwgs) for _ln_fdot in tqdm(ln_fdot_range)])
+    fdot_lnls_vec = np.array([lnl(a_true,f_true, _fdot, **lnl_kwgs) for _fdot in tqdm(fdot_range)])
     make_gif(
-        ln_fdot_range,
-        dict(param_name='ln_fdot', lnl_vec=ln_fdot_lnls_vec, params=ln_fdot_range, true_value=ln_fdot_true),
+        fdot_range,
+        dict(param_name='fdot', lnl_vec=fdot_lnls_vec, params=fdot_range, true_value=fdot_true),
         wfm_kwgs,
         hwavelet,
     )

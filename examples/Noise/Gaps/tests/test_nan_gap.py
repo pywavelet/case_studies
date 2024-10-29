@@ -12,8 +12,8 @@ import numpy as np
 ONE_HOUR = 60 * 60
 ONE_DAY = 24 * ONE_HOUR
 a_true = 1e-21
-ln_f_true = np.log(3e-3)
-ln_fdot_true = np.log(1e-8)
+f_true = 3e-3
+fdot_true = 1e-8
 
 # ollie's settings
 # tmax = 18.773 * ONE_HOUR
@@ -26,18 +26,18 @@ start_gap = tmax * 0.45
 end_gap = start_gap + 2 * ONE_HOUR
 
 
-def generate_data(a_true, ln_f_true, ln_fdot_true, tmax):
-    ht, hf = generate_padded_signal(
-        a_true, ln_f_true, ln_fdot_true, tmax
+def generate_data(a_true, f_true, fdot_true, tmax):
+    ht = generate_padded_signal(
+        a_true, f_true, fdot_true, tmax
     )
     gap = GapWindow(ht.time, start_gap, end_gap, tmax=tmax)
     h_stiched_wavelet = generate_wavelet_with_gap(gap, ht, Nf)
-    return ht, hf, gap, h_stiched_wavelet
+    return ht, gap, h_stiched_wavelet
 
 
 def test_lnl(plot_dir):
-    ht,_, gap, hdata = generate_data(a_true, ln_f_true, ln_fdot_true, tmax)
-    htemplate = gap_hwavelet_generator(a_true, ln_f_true, ln_fdot_true, gap, Nf)
+    ht,_, gap, hdata = generate_data(a_true, f_true, fdot_true, tmax)
+    htemplate = gap_hwavelet_generator(a_true, f_true, fdot_true, gap, Nf)
     psd = Wavelet(np.ones_like(htemplate.data), htemplate.time, htemplate.freq)
     lnl = compute_likelihood(hdata, htemplate, psd)
 
@@ -51,7 +51,7 @@ def test_lnl(plot_dir):
 
 
 def test_chunked_timeseries(plot_dir):
-    ht, hf, gap, h_stiched_wavelet = generate_data(a_true, ln_f_true, ln_fdot_true, tmax)
+    ht, hf, gap, h_stiched_wavelet = generate_data(a_true, f_true, fdot_true, tmax)
     chunks = chunk_timeseries(ht, gap)
     chunksf = [c.to_frequencyseries() for c in chunks]
     chunkd_wavelets = [from_freq_to_wavelet(chunk.to_frequencyseries(), 16) for chunk in chunks]

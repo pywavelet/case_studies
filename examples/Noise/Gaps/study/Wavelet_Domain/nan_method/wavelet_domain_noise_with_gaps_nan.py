@@ -18,8 +18,8 @@ from gap_study_utils.wavelet_data_utils import chunk_timeseries, generate_wavele
 from constants import *
 
 
-def lnl(a, ln_f, ln_fdot, gap, Nf, data, psd, windowing=True, alpha=0.0, filter=True):
-    htemplate = gap_hwavelet_generator(a, ln_f, ln_fdot, gap, Nf, windowing=windowing, alpha=alpha, filter=filter)
+def lnl(a, f, fdot, gap, Nf, data, psd, windowing=True, alpha=0.0, filter=True):
+    htemplate = gap_hwavelet_generator(a, f, fdot, gap, Nf, windowing=windowing, alpha=alpha, filter=filter)
     return compute_likelihood(data, htemplate, psd)
 
 
@@ -27,15 +27,16 @@ def lnl(a, ln_f, ln_fdot, gap, Nf, data, psd, windowing=True, alpha=0.0, filter=
 
 def generate_data(
     a_true=A_TRUE,
-    ln_f_true = LN_F_TRUE,
-    ln_fdot_true = LN_FDOT_TRUE,
+    f_true = F_TRUE,
+    fdot_true = FDOT_TRUE,
     start_gap = START_GAP,
     end_gap = END_GAP,
     Nf = NF,
     tmax = TMAX,
     plotfn="",
 ):
-    ht, hf = generate_padded_signal(a_true, ln_f_true, ln_fdot_true, tmax)
+    ht = generate_padded_signal(a_true, f_true, fdot_true, tmax)
+    hf = ht.to_frequencyseries()
     h_wavelet = from_freq_to_wavelet(hf, Nf=Nf)
     psd = FrequencySeries(
         data=CornishPowerSpectralDensity(hf.freq),

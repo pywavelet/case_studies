@@ -1,7 +1,7 @@
 import gif
 import matplotlib.pyplot as plt
 import arviz as az
-from constants import TRUES, PRIOR, A_TRUE, LN_F_TRUE, LN_FDOT_TRUE, START_GAP, END_GAP, NF, TMAX, RANGES
+from constants import TRUES, PRIOR, A_TRUE, F_TRUE, FDOT_TRUE, START_GAP, END_GAP, NF, TMAX, RANGES
 from wavelet_domain_noise_with_gaps_nan import lnl, gap_hwavelet_generator, generate_data
 from tqdm.auto import trange
 import corner
@@ -27,8 +27,8 @@ def plot_trace(idata:az.InferenceData, axes, i=None, max_iter=None):
         # # set lims
         # axes[row, 0].set_xlim(*RANGES[row])
         # axes[row, 1].set_ylim(*RANGES[row])
-    axes[0,0].set_xscale('log')
-    axes[0,1].set_yscale('log')
+        axes[i,0].set_xscale('log')
+        axes[i,1].set_yscale('log')
 
 def _get_samp(i):
     samp = IDATA.posterior.isel(draw=i).median(dim="chain")
@@ -44,7 +44,7 @@ def frame(hdata, kwgs, i, max_iter=None):
     htemplate = gap_hwavelet_generator(**_get_samp(i), **kwgs)
     htemplate.plot(ax=axes[3,1], show_colorbar=False)
 
-def make_gif(hdata, kwgs, n_frames = 20):
+def make_gif(hdata, kwgs, n_frames = 10):
     frames = []
     N = len(IDATA.sample_stats.draw)
     for i in trange(int(N*0.1), N, int(N/n_frames)):
@@ -57,26 +57,20 @@ def plot_corner():
     burnin = 0.5
     burnin_idx = int(burnin * len(idata.sample_stats.draw))
     idata = idata.sel(draw=slice(burnin_idx, None))
-    # change a to log_a
-    idata.posterior['a'] = np.log(idata.posterior.a)
-    trues = TRUES.copy()
-    trues[0] = np.log(trues[0])
-    ranges = RANGES.copy()
-    ranges[0] = np.log(ranges[0])
-    corner.corner(IDATA, truths=trues, labels=["log_a", "ln_f", "ln_fdot"])
+    corner.corner(IDATA, truths=TRUES, labels=["a", "f", "fdot"], axes_scale='log')
     plt.savefig("corner.png")
 
 def main(
         a_true=A_TRUE,
-        ln_f_true=LN_F_TRUE,
-        ln_fdot_true=LN_FDOT_TRUE,
+        f_true=F_TRUE,
+        fdot_true=FDOT_TRUE,
         start_gap=START_GAP,
         end_gap=END_GAP,
         Nf=NF,
         tmax=TMAX,
 ):
     plot_corner()
-    hdata, psd, gap = generate_data(a_true, ln_f_true, ln_fdot_true, start_gap, end_gap, Nf, tmax)
+    hdata, psd, gap = generate_data(a_true, f_true, fdot_true, start_gap, end_gap, Nf, tmax)
     kwgs = dict(gap=gap, Nf=Nf)
     make_gif(hdata, kwgs)
 

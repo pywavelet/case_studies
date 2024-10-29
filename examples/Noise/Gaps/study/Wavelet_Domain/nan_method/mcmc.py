@@ -1,6 +1,6 @@
 import emcee
 from wavelet_domain_noise_with_gaps_nan import lnl, gap_hwavelet_generator, generate_data
-from constants import A_TRUE, LN_F_TRUE, LN_FDOT_TRUE, START_GAP, END_GAP, NF, TMAX, ONE_HOUR, OUTDIR, PRIOR, TRUES, CENTERED_PRIOR
+from constants import A_TRUE, F_TRUE, FDOT_TRUE, START_GAP, END_GAP, NF, TMAX, ONE_HOUR, OUTDIR, PRIOR, TRUES, CENTERED_PRIOR
 from scipy.stats import uniform
 import numpy as np
 import corner
@@ -16,8 +16,8 @@ os.makedirs(OUT_MCMC, exist_ok=True)
 
 
 def log_prior(theta):
-    a, ln_f, ln_fdot = theta
-    return PRIOR.ln_prob(dict(a=a, ln_f=ln_f, ln_fdot=ln_fdot))
+    a, f, fdot = theta
+    return PRIOR.ln_prob(dict(a=a, f=f, fdot=fdot))
 
 
 def sample_prior(prior, n_samples=1):
@@ -46,17 +46,17 @@ def plot_prior():
 
 def main(
         a_true=A_TRUE,
-        ln_f_true=LN_F_TRUE,
-        ln_fdot_true=LN_FDOT_TRUE,
+        f_true=F_TRUE,
+        fdot_true=FDOT_TRUE,
         start_gap=START_GAP,
         end_gap=END_GAP,
         Nf=NF,
         tmax=TMAX,
-        n_iter=25000,
+        n_iter=10000,
         nwalkers=32
 ):
     plot_prior()
-    data, psd, gap = generate_data(a_true, ln_f_true, ln_fdot_true, start_gap, end_gap, Nf, tmax)
+    data, psd, gap = generate_data(a_true, f_true, fdot_true, start_gap, end_gap, Nf, tmax)
 
 
     x0 = sample_prior(CENTERED_PRIOR, nwalkers)
@@ -68,7 +68,7 @@ def main(
     sampler.run_mcmc(x0, n_iter, progress=True)
 
     # Save the chain
-    idata = az.from_emcee(sampler, var_names=["a", "ln_f", "ln_fdot"])
+    idata = az.from_emcee(sampler, var_names=["a", "f", "fdot"])
     idata = az.InferenceData(posterior=idata.posterior, sample_stats=idata.sample_stats)
     idata.to_netcdf("emcee_chain.nc")
     print("Saved chain to emcee_chain.nc")
