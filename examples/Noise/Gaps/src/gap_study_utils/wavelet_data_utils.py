@@ -7,7 +7,7 @@ from pywavelet.transforms.forward.wavelet_bins import compute_bins
 
 from .gap_funcs import GapWindow
 from .signal_utils import zero_pad, waveform_generator
-from typing import List
+from typing import List, Optional
 
 import matplotlib.pyplot as plt
 
@@ -23,20 +23,27 @@ def chunk_timeseries(ht:TimeSeries, gap:GapWindow, windowing_alpha:float=0, filt
 
     for i in range(2):
         d = chunks[i].data
-        # taper = tukey(len(d), alpha=windowing_alpha)
-        # d = bandpass_data(d*taper, 7e-4, 1 / ht.dt, bandpassing_flag=filter, order=4)
+
+        if filter:
+            taper = tukey(len(d), alpha=windowing_alpha)
+            d = bandpass_data(d*taper, f_min_bp=7e-4, fs=ht.fs,  order=4)
+
         d = zero_pad(d)
-        ## THIS MUCKS UP THE TIME VECTOR?? Now the len of chunks + gap != orig
         t = np.arange(0, len(d) * ht.dt, ht.dt) + chunks[i].time[0]
         chunks[i] = TimeSeries(d, t)
 
     return chunks
 
 
-def gap_hwavelet_generator(a:float, ln_f:float, ln_fdot:float, gap:GapWindow, Nf:int, windowing=True, alpha=0.0, filter=False)->Wavelet:
+def gap_hwavelet_generator(a:float, ln_f:float, ln_fdot:float, time:np.ndarray, gap:Optional[GapWindow], tmax:float, Nf:int, alpha=0.0, filter=False)->Wavelet:
     f, fdot = np.exp(ln_f), np.exp(ln_fdot)
-    ht = waveform_generator(a, f, fdot, gap.t, gap.tmax, alpha=alpha)
-    return generate_wavelet_with_gap(gap, ht, Nf, windowing=windowing, alpha=alpha, filter=filter)
+    ht = waveform_generator(a, f, fdot, time, tmax, alpha=alpha)
+    if gap is not None:
+        hwavelet =  generate_wavelet_with_gap(gap, ht, Nf, alpha=alpha, filter=filter)
+    else:
+        hwavelet = from_freq_to_wavelet(ht.to_frequencyseries(), Nf)
+    return hwavelet
+
 
 
 
@@ -44,8 +51,7 @@ def generate_wavelet_with_gap(
         gap: GapWindow,
         ht:TimeSeries,
         Nf: int,
-        windowing=False,
-        alpha=0,
+        alpha:float=0.0,
         filter=False,
 ):
     chunked_timeseries = chunk_timeseries(ht, gap, windowing_alpha=alpha, filter=filter)
@@ -80,10 +86,15 @@ def generate_wavelet_with_gap(
     return Wavelet(stiched_data[:, tmask], time_bins[tmask], freq_bins)
 
 
-def bandpass_data(rawstrain, f_min_bp, fs, bandpassing_flag=False, order=4):
+def bandpass_data(rawstrain:np.ndarray, f_min_bp:float, fs:float, order:int=4):
     """
 
    Bandpass the raw strain between [f_min, f_max] Hz.
+
+
+    Create a Nth order Butterworth bandpass filter between [f_min, f_max] and apply it with the function filtfilt.
+        #  bb, ab = butter(order, [f_min_bp/(0.5*srate_dt), f_max_bp/(0.5*srate_dt)], btype='band')
+
 
    Arguments
    ---------
@@ -96,8 +107,6 @@ def bandpass_data(rawstrain, f_min_bp, fs, bandpassing_flag=False, order=4):
    The upper frequency of the bandpass filter.
    srate_dt: float
    The sampling rate of the data.
-   bandpassing_flag: bool
-   Whether to apply bandpassing or not.
 
    Returns
    -------
@@ -106,14 +115,7 @@ def bandpass_data(rawstrain, f_min_bp, fs, bandpassing_flag=False, order=4):
    The bandpassed strain data.
 
    """
-    if (bandpassing_flag):
-        # Bandpassing section.
-        # Create a fourth order Butterworth bandpass filter between [f_min, f_max] and apply it with the function filtfilt.
-        #  bb, ab = butter(order, [f_min_bp/(0.5*srate_dt), f_max_bp/(0.5*srate_dt)], btype='band')
-
-        f_nyq = 0.5 * fs
-        bb, ab = butter(order, f_min_bp / (f_nyq), btype="highpass")
-        strain = filtfilt(bb, ab, rawstrain)
-    else:
-        strain = rawstrain
+    f_nyq = 0.5 * fs
+    bb, ab = butter(order, f_min_bp / (f_nyq), btype="highpass")
+    strain = filtfilt(bb, ab, rawstrain)
     return strain
