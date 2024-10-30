@@ -1,9 +1,14 @@
-from wavelet_domain_noise_with_gaps_nan import lnl, gap_hwavelet_generator, generate_data
-from constants import A_TRUE, LN_F_TRUE, LN_FDOT_TRUE, START_GAP, END_GAP, NF, TMAX, ONE_HOUR, OUTDIR, LN_F_RANGE, LN_FDOT_RANGE
+from gap_study_utils.bayesian_functions import lnl, gap_hwavelet_generator
+from gap_study_utils.analysis_data import generate_data
+from gap_study_utils.constants import A_TRUE, LN_F_TRUE, LN_FDOT_TRUE, START_GAP, END_GAP, NF, TMAX, ONE_HOUR, LN_F_RANGE, LN_FDOT_RANGE
 import numpy as np
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import gif
+import os
+
+OUTDIR = "plots"
+os.makedirs(OUTDIR, exist_ok=True)
 
 gif.options.matplotlib["dpi"] = 100
 
@@ -25,6 +30,7 @@ def plot_wavelets(hdata, htemplate, ax=None):
         fig, ax = plt.subplots(2, 1)
     hdata.plot(ax=ax[0])
     htemplate.plot(ax=ax[1])
+    htemplate.plot_trend(ax=ax[0], color='black')
 
 
 @gif.frame
@@ -55,7 +61,7 @@ def main(
         end_gap=END_GAP,
         Nf=NF,
         tmax=TMAX,
-        N_points=25
+        N_points=10
 ):
     hwavelet, psd, gap = generate_data(a_true, ln_f_true, ln_fdot_true, start_gap, end_gap, Nf, tmax)
 

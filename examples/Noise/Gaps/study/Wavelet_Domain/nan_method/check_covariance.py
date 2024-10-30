@@ -1,17 +1,13 @@
-import emcee
-from wavelet_domain_noise_with_gaps_nan import generate_data, generate_stat_noise, generate_wavelet_with_gap, generate_padded_signal
-from constants import A_TRUE, LN_F_TRUE, LN_FDOT_TRUE, START_GAP, END_GAP, NF, TMAX, ONE_HOUR, OUTDIR, PRIOR, TRUES, CENTERED_PRIOR
-from multiprocessing import (get_context,cpu_count)
-from gap_study_utils.noise_curves import noise_PSD_AE, CornishPowerSpectralDensity
-from pywavelet.utils import evolutionary_psd_from_stationary_psd, compute_snr, compute_likelihood
-from pywavelet.transforms.types import FrequencySeries, TimeSeries
-from pywavelet.transforms import from_freq_to_wavelet, from_time_to_wavelet
-import numpy as np
-from tqdm import tqdm as tqdm  
 import os
-import arviz as az
 
-import matplotlib.pyplot as plt
+from gap_study_utils.analysis_data  import AnalysisData, generate_wavelet_with_gap
+
+from gap_study_utils.constants import A_TRUE, LN_F_TRUE, LN_FDOT_TRUE, START_GAP, END_GAP, NF, TMAX
+from pywavelet.transforms import from_freq_to_wavelet, from_time_to_wavelet
+from gap_study_utils.random import seed
+import numpy as np
+from tqdm.auto import trange
+from gap_study_utils.noise_curves import generate_stationary_noise
 
 def main(
         a_true=A_TRUE,
@@ -21,40 +17,38 @@ def main(
         end_gap=END_GAP,
         Nf=NF,
         tmax=TMAX,
+        N_iter=10_000,
+        outdir="matrix_directory"
 ):
-    
-    windowing, alpha = False, 0.0 # Set this parameter if you want to window (reduce leakage)
-    filter = True # Set this parameter if you wish to apply a high pass filter
-    noise_realisation = True
-    ht, hf = generate_padded_signal(a_true, ln_f_true, ln_fdot_true, tmax)
-    h_wavelet = from_freq_to_wavelet(hf, Nf=Nf)
-    
-    psd = FrequencySeries(
-        data=CornishPowerSpectralDensity(hf.freq),
-        freq=hf.freq
+    os.makedirs(outdir, exist_ok=True)
+    seed(11_07_1993)
+    analysis_data = AnalysisData.generate_data(
+        a_true=a_true,
+        ln_f_true=ln_f_true,
+        ln_fdot_true=ln_fdot_true,
+        gap_range=[start_gap,end_gap],
+        Nf=Nf,
+        tmax=tmax,
+        noise=True,
+        alpha=0.0,
+        filter=False,
     )
-
-    _, _, gap = generate_data(a_true, ln_f_true, ln_fdot_true, 
-                                    start_gap, end_gap, Nf, tmax, 
-                                    windowing = windowing,
-                                    alpha = alpha,
-                                    filter = filter,
-                                    noise_realisation = noise_realisation,
-                                    seed_no = 11_07_1993)
 
 
     flattened_vec_gap = []
     flattened_vec_no_gap = []
-    for i in tqdm(range(0,10000)):
-
-        noise_FS = generate_stat_noise(ht, psd, seed_no = i, TD = False)
-        noise_TS = generate_stat_noise(ht, psd, seed_no = i, TD = True)
-
+    for i in trange(N_iter):
+        seed(i)
+        noise_TS = generate_stationary_noise(ND=analysis_data.ND, dt=analysis_data.dt, psd=analysis_data.psd_freqseries, time_domain=True)
+        noise_FS = generate_stationary_noise(ND=analysis_data.ND, dt=analysis_data.dt, psd=analysis_data.psd_freqseries, time_domain=False)
         noise_wavelet = from_freq_to_wavelet(noise_FS, Nf = Nf)
-
-        noise_wavelet_with_gap = generate_wavelet_with_gap(gap, noise_TS, Nf, 
-                                                           windowing=windowing, alpha=alpha,
-                                                          filter=filter)
+        noise_wavelet_with_gap = generate_wavelet_with_gap(
+            gap=analysis_data.gap,
+            ht=noise_TS,
+            Nf=analysis_data.Nf,
+            alpha=analysis_data.alpha,
+            filter=analysis_data.filter
+        )
 
         noise_wavelet_flat = noise_wavelet.data.flatten()
         noise_wavelet_with_gap_flat = noise_wavelet_with_gap.data.flatten()
@@ -67,8 +61,8 @@ def main(
     Cov_Matrix_no_gap = np.cov(flattened_vec_no_gap, rowvar = False)
     Cov_Matrix_gap = np.cov(flattened_vec_gap, rowvar = False)
     # This is in the git ignore
-    np.save("matrix_directory/Cov_Matrix_Flat_w_filter.npy", Cov_Matrix_no_gap)
-    np.save("matrix_directory/Cov_Matrix_Flat_w_filter_gap.npy", Cov_Matrix_gap)
+    np.save(f"{outdir}/Cov_Matrix_Flat_w_filter.npy", Cov_Matrix_no_gap)
+    np.save(f"{outdir}/Cov_Matrix_Flat_w_filter_gap.npy", Cov_Matrix_gap)
 
 if __name__ == "__main__":
-    main()
+    main(N_iter=10_000)

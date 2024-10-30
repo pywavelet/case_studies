@@ -13,7 +13,7 @@ from typing import List
 def test_chunked_timeseries(plot_dir, test_data):
     ht = test_data.ht
     gap = test_data.gap
-    h_stiched_wavelet = test_data.hwavelet_gap
+    h_stiched_wavelet = test_data.hwavelet
     a_true, ln_f_true, ln_fdot_true = test_data.trues
     chunks = chunk_timeseries(ht, gap)
     chunksf = [c.to_frequencyseries() for c in chunks]

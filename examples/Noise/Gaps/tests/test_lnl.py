@@ -10,7 +10,7 @@ import numpy as np
 def test_lnl(plot_dir, test_data):
     ht = test_data.ht
     gap = test_data.gap
-    hdata = test_data.hwavelet_gap
+    hdata = test_data.hwavelet
     a_true, ln_f_true, ln_fdot_true = test_data.trues
     htemplate_no_gap = waveform_generator(a_true, np.exp(ln_f_true), np.exp(ln_fdot_true), gap.t, gap.tmax, alpha=test_data.alpha)
 
@@ -23,7 +23,10 @@ def test_lnl(plot_dir, test_data):
     np.testing.assert_allclose(ht.data, htemplate_no_gap.data, rtol=1e-5)
 
 
-    htemplate = gap_hwavelet_generator(a_true, ln_f_true, ln_fdot_true, gap, test_data.Nf, test_data.windowing, test_data.alpha, test_data.filter)
+    htemplate = gap_hwavelet_generator(
+        a_true, ln_f_true, ln_fdot_true,
+        time=test_data.time, gap=gap, tmax=gap.tmax, Nf=test_data.Nf, alpha=test_data.alpha, filter=test_data.filter
+    )
     psd = Wavelet(np.ones_like(htemplate.data), htemplate.time, htemplate.freq)
     lnl = compute_likelihood(hdata, htemplate, psd)
 

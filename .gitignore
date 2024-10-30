@@ -1,5 +1,6 @@
 # Data directories
 examples/Noise/Gaps/study/Wavelet_Domain/nan_method/matrix_directory
+*.npy
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -8,7 +9,7 @@ __pycache__/
 *.dat
 *.idea
 *.DS_Store
-#python stuff
+#python stuffs
 *.npy
 *.nc
 *.gif

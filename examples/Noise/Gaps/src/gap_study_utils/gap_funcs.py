@@ -6,6 +6,9 @@ from pywavelet.transforms.types import TimeSeries, Wavelet
 from scipy.signal.windows import tukey
 import numpy as np
 
+from typing import List
+
+
 ONE_HOUR = 60*60
 def gap_routine(t:np.ndarray, start_window:float, end_window:float, lobe_length = 3, delta_t = 10):
 
@@ -116,10 +119,10 @@ def regularise_matrix(Cov_Matrix, window, tol = 0.01):
 
 
 class GapWindow:
-    def __init__(self, t:np.ndarray, start:float, end:float, tmax:float):
-        self.gap_start = start
-        self.gap_end = end
-        self.nan_mask = self.__generate_nan_mask(t, start, end)
+    def __init__(self, t:np.ndarray, gap_range:List[float], tmax:float):
+        self.gap_start = gap_range[0]
+        self.gap_end =  gap_range[1]
+        self.nan_mask = self.__generate_nan_mask(t, self.gap_start, self.gap_end)
         self.t = t
         self.tmax = tmax # Note-- t[-1] is not necessarily tmax -- might be padded.
         # first idx od nan

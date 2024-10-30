@@ -7,29 +7,10 @@ from pywavelet.transforms.types import TimeSeries, FrequencySeries, Wavelet
 from gap_study_utils.signal_utils import generate_padded_signal
 from gap_study_utils.gap_funcs import GapWindow
 from gap_study_utils.wavelet_data_utils import chunk_timeseries, generate_wavelet_with_gap, gap_hwavelet_generator
+from gap_study_utils.analysis_data import AnalysisData
 
 from dataclasses import dataclass
 
-
-@dataclass
-class TestData:
-    ht: TimeSeries
-    hf: FrequencySeries
-    gap: GapWindow
-    hwavelet_gap: Wavelet
-    trues: List[float]
-    alpha: float
-    windowing: bool
-    filter: bool
-    Nf: int
-
-    @classmethod
-    def from_trues(cls, trues: List[float], windowing: bool, filter: bool, alpha: float, Nf: int, tmax: float,
-                   start_gap: float, end_gap: float):
-        ht, hf = generate_padded_signal(*trues, tmax, alpha)
-        gap = GapWindow(ht.time, start_gap, end_gap, tmax=tmax)
-        h_stiched_wavelet = generate_wavelet_with_gap(gap, ht, Nf, windowing=windowing, alpha=alpha, filter=filter)
-        return cls(ht, hf, gap, h_stiched_wavelet, trues, alpha, windowing, filter, Nf)
 
 
 ONE_HOUR = 60 * 60
@@ -57,9 +38,5 @@ def plot_dir():
 
 
 @pytest.fixture
-def test_data() -> TestData:
-    return TestData.from_trues(
-        [a_true, ln_f_true, ln_fdot_true],
-        windowing=True, filter=True, alpha=0.0,
-        Nf=Nf, tmax=tmax, start_gap=start_gap, end_gap=end_gap
-    )
+def test_data() -> AnalysisData:
+    return AnalysisData.generate_data()

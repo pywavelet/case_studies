@@ -2,14 +2,18 @@ import numpy as np
 from pywavelet.transforms.types import FrequencySeries, TimeSeries
 from scipy.signal.windows import tukey
 from typing import Tuple
+import warnings
 
-def inner_prod(sig1_f, sig2_f, PSD, delta_t, N_t):
+# Set filter to show each warning only once
+warnings.simplefilter("once")
+
+def inner_prod(sig1_f:np.ndarray, sig2_f:np.ndarray, PSD:np.ndarray, delta_t:float, N_t:int)->float:
     # Compute inner product. Useful for likelihood calculations and SNRs.
     return (4 * delta_t / N_t) * np.real(
         sum(np.conjugate(sig1_f) * sig2_f / PSD)
     )
 
-def compute_snr_freq(h_f, PSD, delta_t, N):
+def compute_snr_freq(h_f:np.ndarray, PSD:np.ndarray, delta_t:float, N:int)->float:
     """
     Compute the optimal matched filtering SNR in the frequency domain.
 
@@ -26,7 +30,7 @@ def compute_snr_freq(h_f, PSD, delta_t, N):
     return np.sqrt(SNR2)
 
 
-def waveform(a:float, f:float, fdot:float, t:np.ndarray, eps=0):
+def waveform(a:float, f:float, fdot:float, t:np.ndarray)->np.ndarray:
     """
     This is a function. It takes in a value of the amplitude $a$, frequency $f$ and frequency derivative $\dot{f}
     and a time vector $t$ and spits out whatever is in the return function. Modify amplitude to improve SNR.
@@ -38,14 +42,18 @@ def waveform(a:float, f:float, fdot:float, t:np.ndarray, eps=0):
 
 
 
-def zero_pad(data):
+def zero_pad(data:np.ndarray)->np.ndarray:
     """
     This function takes in a vector and zero pads it so it is a power of two.
     We do this for the O(Nlog_{2}N) cost when we work in the frequency domain.
     """
     N = len(data)
     pow_2 = np.ceil(np.log2(N))
-    return np.pad(data, (0, int((2**pow_2) - N)), "constant")
+    n_pad = int((2**pow_2) - N)
+    # warn that we are padding the data (Log one time only in entire execution)
+    if n_pad > 0:
+        warnings.warn(f"Padding the data to a power of two. {N} -> {N + n_pad}. Avoid this by ensuring data in powers of 2.")
+    return np.pad(data, (0, n_pad), "constant")
 
 
 def waveform_generator(a:float, f:float, fdot:float, t:np.ndarray, tmax:float, alpha:float=0.0)->TimeSeries:
@@ -65,7 +73,7 @@ def waveform_generator(a:float, f:float, fdot:float, t:np.ndarray, tmax:float, a
     )
 
 
-def generate_padded_signal(a, ln_f, ln_fdot, tmax, alpha=0)->Tuple[TimeSeries, FrequencySeries]:
+def generate_padded_signal(a:float, ln_f:float, ln_fdot:float, tmax:float, alpha:float=0)->Tuple[TimeSeries, FrequencySeries]:
     f = np.exp(ln_f)
     fdot = np.exp(ln_fdot)
     fs = 2 * f
