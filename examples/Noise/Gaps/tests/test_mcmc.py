@@ -9,6 +9,13 @@ def test_mcmc(plot_dir):
         alpha=0.1,
         filter=True,
     )
+    filtering_kwgs = dict(
+        noise_realisation=False,
+        # fmin=0.0001,
+        # alpha=0.1,
+        filter=False,
+    )
+
     run_mcmc(
         n_iter=250,
         outdir=f"{plot_dir}/gap_mcmc",
