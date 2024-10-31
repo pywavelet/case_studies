@@ -49,13 +49,14 @@ def plot_mcmc_summary(idata, analysis_data:AnalysisData, i=None, fname=None):
         tmax=analysis_data.tmax,
         Nf=analysis_data.Nf,
         alpha=analysis_data.alpha,
-        filter=analysis_data.filter
+        filter=analysis_data.filter,
+        fmin=analysis_data.fmin
     )
 
     fig, axes = plt.subplots(4, 2, figsize=(10, 10))
     fig.suptitle(f"Iteration {i}")
     plot_trace(idata, axes, i, max_iter)
-    analysis_data.hwavelet.plot(ax=axes[3, 0], show_colorbar=False)
+    analysis_data.wavelet_data.plot(ax=axes[3, 0], show_colorbar=False)
     htemplate.plot(ax=axes[3, 1], show_colorbar=False)
     htemplate.plot_trend(ax=axes[3, 1], color='black')
     if fname:

@@ -12,7 +12,7 @@ from pywavelet.transforms.types.plotting import plot_wavelet_grid
 
 from gap_study_utils.signal_utils import zero_pad, inner_prod, waveform
 from gap_study_utils.noise_curves import noise_PSD_AE
-from gap_study_utils.wavelet_data_utils import bandpass_data
+from gap_study_utils.wavelet_data_utils import bandpass_timeseries
 
 
 # Function to generate waveform

@@ -10,7 +10,7 @@ import numpy as np
 def test_lnl(plot_dir, test_data):
     ht = test_data.ht
     gap = test_data.gap
-    hdata = test_data.hwavelet
+    hdata = test_data.wavelet_data
     a_true, ln_f_true, ln_fdot_true = test_data.trues
     htemplate_no_gap = waveform_generator(a_true, np.exp(ln_f_true), np.exp(ln_fdot_true), gap.t, gap.tmax, alpha=test_data.alpha)
 

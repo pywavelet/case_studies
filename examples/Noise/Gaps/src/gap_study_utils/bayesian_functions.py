@@ -1,6 +1,5 @@
 import numpy as np
 from pywavelet.utils import compute_likelihood
-from pywavelet.transforms.types import  Wavelet
 from bilby.core.prior import Uniform, TruncatedGaussian, Gaussian, PriorDict
 from .constants import A_RANGE, LN_F_RANGE, LN_FDOT_RANGE, A_TRUE, LN_F_TRUE, LN_FDOT_TRUE, A_SCALE, LN_F_SCALE, LN_FDOT_SCALE
 
@@ -8,7 +7,6 @@ from typing import List
 from .wavelet_data_utils import gap_hwavelet_generator
 from .analysis_data import AnalysisData
 
-from .gap_funcs import GapWindow
 
 PRIOR = PriorDict(dict(
     a=Uniform(*A_RANGE),
@@ -38,7 +36,7 @@ def lnl(
         Nf=analysis_data.Nf,
         **analysis_data.waveform_kwgs
     )
-    return compute_likelihood(analysis_data.hwavelet, htemplate, analysis_data.psd)
+    return compute_likelihood(analysis_data.wavelet_data, htemplate, analysis_data.psd)
 
 
 

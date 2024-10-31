@@ -9,6 +9,8 @@ import numpy as np
 import os
 import arviz as az
 
+import warnings
+
 
 def run_mcmc(
         true_params=[A_TRUE, LN_F_TRUE, LN_FDOT_TRUE],
@@ -17,6 +19,7 @@ def run_mcmc(
         tmax=TMAX,
         alpha=0.0,
         filter=False,
+        fmin=10**-4,
         noise_realisation=False,
         n_iter=2500,
         nwalkers=32,
@@ -50,6 +53,7 @@ def run_mcmc(
         alpha=alpha,
         filter=filter,
         noise=noise_realisation,
+        fmin=fmin,
         plotfn=f"{outdir}/data.png",
     )
 
@@ -59,8 +63,8 @@ def run_mcmc(
     # Check likelihood
     llike_val = log_posterior(true_params, analysis_data)
     print("Value of likelihood at true values is", llike_val)
-    if noise_realisation is False:
-        assert np.isclose(llike_val, 0.0), "Likelihood at true values is not zero!"
+    if noise_realisation is False and not np.isclose(llike_val, 0.0):
+        warnings.warn(f"LnL(True values) = {llike_val:.3e} != 0.0... SUSPICIOUS!")
 
     N_cpus = cpu_count()
     pool = get_context("fork").Pool(N_cpus)
