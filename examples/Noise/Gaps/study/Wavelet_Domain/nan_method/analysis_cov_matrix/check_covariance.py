@@ -27,7 +27,6 @@ def main(
     filter = True # Set this parameter if you wish to apply a high pass filter
     noise_realisation = True
     ht, hf = generate_padded_signal(a_true, ln_f_true, ln_fdot_true, tmax)
-    h_wavelet = from_freq_to_wavelet(hf, Nf=Nf)
     
     psd = FrequencySeries(
         data=CornishPowerSpectralDensity(hf.freq),
@@ -55,10 +54,10 @@ def main(
         noise_wavelet_with_gap = generate_wavelet_with_gap(gap, noise_TS, Nf, 
                                                            windowing=windowing, alpha=alpha,
                                                           filter=filter)
+        breakpoint()
 
         noise_wavelet_flat = noise_wavelet.data.flatten()
         noise_wavelet_with_gap_flat = noise_wavelet_with_gap.data.flatten()
-        noise_wavelet_with_gap_flat = np.nan_to_num(noise_wavelet_with_gap_flat, nan=0)
         
 
         flattened_vec_no_gap.append(noise_wavelet_flat)

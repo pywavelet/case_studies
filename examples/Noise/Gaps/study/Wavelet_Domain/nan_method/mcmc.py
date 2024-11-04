@@ -61,7 +61,7 @@ def main(
     
     windowing, alpha = False, 0.0 # Set this parameter if you want to window (reduce leakage)
     filter = True # Set this parameter if you wish to apply a high pass filter
-    noise_realisation = True
+    noise_realisation = False
 
     plot_prior()
     data, psd, gap = generate_data(a_true, ln_f_true, ln_fdot_true, 
@@ -79,7 +79,8 @@ def main(
     true_params = [A_TRUE, LN_F_TRUE, LN_FDOT_TRUE]
     llike_val = log_posterior(true_params, gap, Nf, data, psd, windowing = windowing, alpha = alpha, filter = filter)
     print("Value of likelihood at true values is", llike_val)
-    assert llike_val == 0, "Likelihood is not zero at true values!"
+    if noise_realisation == False:
+        assert llike_val == 0, "Likelihood is not zero at true values!"
 
     # Allow for multiprocessing
     N_cpus = cpu_count()

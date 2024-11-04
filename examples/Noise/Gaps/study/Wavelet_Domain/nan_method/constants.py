@@ -15,7 +15,8 @@ TRUES = [A_TRUE, LN_F_TRUE, LN_FDOT_TRUE]
 
 NF = 64
 TMAX = 4 * ONE_DAY
-START_GAP = TMAX  * 0.4
+# START_GAP = TMAX  * 0.4 # OLD
+START_GAP = TMAX  * 0.75 # Get the two segments the same size! 
 END_GAP = START_GAP + 6 * ONE_HOUR
 
 A_RANGE = [1e-22, 3e-21]

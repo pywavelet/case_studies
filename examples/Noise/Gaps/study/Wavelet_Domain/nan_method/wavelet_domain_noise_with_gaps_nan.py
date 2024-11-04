@@ -117,26 +117,31 @@ def generate_data(
     # Gap data
     gap = GapWindow(data_stream.time, start_gap, end_gap, tmax=tmax)
     chunks = chunk_timeseries(data_stream, gap)
+    h_wavelet_with_gap = generate_wavelet_with_gap(
+        gap, ht, Nf, 
+        windowing=windowing, alpha=alpha, filter=filter
+    )
+
     data_wavelet_with_gap = generate_wavelet_with_gap(
         gap, data_stream, Nf, 
         windowing=windowing, alpha=alpha, filter=filter
     )
     psd_wavelet_with_gap = gap.apply_nan_gap_to_wavelet(psd_wavelet)
-    print(f"SNR (hw, with gaps): {compute_snr(data_wavelet_with_gap, psd_wavelet_with_gap)}")
+    print(f"SNR (hw, with gaps): {compute_snr(h_wavelet_with_gap, psd_wavelet_with_gap)}")
 
-    # fig, axes = plt.subplots(4, 1, figsize=(10, 10), sharex=True)
-    # h_wavelet.plot(ax=axes[0], show_colorbar=False, detailed_axes=True)
-    # psd_wavelet.plot(ax=axes[1], show_colorbar=False, detailed_axes=True)
-    # data_wavelet_with_gap.plot(ax=axes[2], show_colorbar=False, detailed_axes=True)
-    # psd_wavelet.plot(ax=axes[3], show_colorbar=False, detailed_axes=True)
-    # plt.subplots_adjust(hspace=0)
-    # for a in axes:
-    #     a.axvline(tmax, color="red", linestyle="--", label="Gap")
-    #     a.set_xlabel("")
-    #     a.set_ylabel("")
-    # axes[0].set_xlim(0, tmax*1.1)
-    # plt.savefig(os.path.join(OUTDIR, "wavelet_debug.pdf"), bbox_inches="tight")
-    #
+    fig, axes = plt.subplots(4, 1, figsize=(10, 10), sharex=True)
+    h_wavelet.plot(ax=axes[0], show_colorbar=False, detailed_axes=True)
+    psd_wavelet.plot(ax=axes[1], show_colorbar=False, detailed_axes=True)
+    data_wavelet_with_gap.plot(ax=axes[2], show_colorbar=False, detailed_axes=True)
+    psd_wavelet.plot(ax=axes[3], show_colorbar=False, detailed_axes=True)
+    plt.subplots_adjust(hspace=0)
+    for a in axes:
+        a.axvline(tmax, color="red", linestyle="--", label="Gap")
+        a.set_xlabel("")
+        a.set_ylabel("")
+    axes[0].set_xlim(0, tmax*1.1)
+    plt.savefig(os.path.join(OUTDIR, "wavelet_debug.pdf"), bbox_inches="tight")
+    
 
 
     if plotfn:
