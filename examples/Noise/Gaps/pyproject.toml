@@ -25,7 +25,7 @@ classifiers = [
 dependencies = [
     "numpy",
     "arviz",
-    "bilby",
+    "eryn",
     "gif",
     "numba",
     "matplotlib",
