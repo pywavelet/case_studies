@@ -9,9 +9,9 @@ from pywavelet.transforms.types import Wavelet, TimeSeries, FrequencySeries
 from .signal_utils import waveform_generator
 from .noise_curves import CornishPowerSpectralDensity, generate_stationary_noise
 from .wavelet_data_utils import chunk_timeseries, generate_wavelet_with_gap
-from .gap_funcs import GapWindow
+from .gap_window import GapWindow
 
-from .constants import A_TRUE, LN_F_TRUE, LN_FDOT_TRUE, START_GAP, END_GAP, NF, TMAX
+from .constants import A_TRUE, LN_F_TRUE, LN_FDOT_TRUE,  NF, TMAX, GAP_RANGES
 
 from dataclasses import dataclass
 
@@ -25,7 +25,7 @@ class AnalysisData:
     tmax: float
     psd: Wavelet
     psd_freqseries: FrequencySeries
-    gap: GapWindow
+    gaps: List[GapWindow]
     trues: List[float]
     waveform_kwgs: Dict[str, Union[float, bool]]
     snrs: Dict[str, float]
@@ -65,7 +65,7 @@ class AnalysisData:
             a_true: float = A_TRUE,
             ln_f_true: float = LN_F_TRUE,
             ln_fdot_true: float = LN_FDOT_TRUE,
-            gap_range: List[float] = [START_GAP, END_GAP],
+            gap_ranges: List[float] = GAP_RANGES,
             Nf: int = NF,
             tmax: float = TMAX,
             noise: bool = False,
@@ -80,7 +80,7 @@ class AnalysisData:
         :param a_true: Amplitude of the signal.
         :param ln_f_true: Natural logarithm of the frequency.
         :param ln_fdot_true: Natural logarithm of the frequency derivative.
-        :param gap_range: [Start, end] time of the gap (in seconds).
+        :param gap_ranges: [[Start, end]] times of the gaps (in seconds).
         :param Nf: Number of frequency bins.
         :param tmax: Maximum time for the signal (in seconds).
         :param noise_realisation: Flag to include noise realisation.
@@ -132,20 +132,21 @@ class AnalysisData:
         print(f"Matched-filter WDM-SNR: {matched_filter_wavelet_snr:.2f}")
 
         # Gap data
-        if gap_range is not None:
+        if gap_ranges is not None:
             print("------GAPPING------")
-            gap = GapWindow(data.time, gap_range, tmax=tmax)
-            print(f"Using Gap: {gap}")
+            gaps = [GapWindow(data.time, gap_range, tmax=tmax) for gap_range in gap_ranges]
+            print(f"Using Gap: {gaps}")
             data_wavelet = generate_wavelet_with_gap(
-                gap=gap, ht=data, Nf=Nf, alpha=alpha, filter=filter, fmin=fmin
+                gaps=gaps, ht=data, Nf=Nf, alpha=alpha, filter=filter, fmin=fmin
             )
             hw = generate_wavelet_with_gap(
-                gap=gap, ht=ht, Nf=Nf, alpha=alpha, filter=filter, fmin=fmin
+                gaps=gaps, ht=ht, Nf=Nf, alpha=alpha, filter=filter, fmin=fmin
             )
-            psd_wavelet = gap.apply_nan_gap_to_wavelet(psd_wavelet)
+            for g in gaps:
+                psd_wavelet = g.apply_nan_gap_to_wavelet(psd_wavelet)
         else:
             print("------NO GAPS------")
-            gap = None
+            gaps = None
             data = data.highpass_filter(fmin=fmin, tukey_window_alpha=alpha)
             data_wavelet = data.to_wavelet(Nf=Nf)
             ht = ht.highpass_filter(fmin=fmin, tukey_window_alpha=alpha)
@@ -174,7 +175,7 @@ class AnalysisData:
             tmax,
             psd_wavelet,
             psd,
-            gap,
+            gaps,
             [a_true, ln_f_true, ln_fdot_true],
             dict(alpha=alpha, filter=filter, fmin=fmin),
             snrs
@@ -199,8 +200,8 @@ class AnalysisData:
         self.ht.plot(ax=ax[2], color="C0", label="Signal", alpha=0.9, lw=0.1)
         hf.plot_periodogram(ax=ax[1], color="C0", label="Signal", alpha=1, lw=1)
         ax[1].loglog(self.psd_freqseries.freq, self.psd_freqseries.data, color="k", label="PSD")
-        if self.gap is not None:
-            chunks = chunk_timeseries(self.ht, self.gap, windowing_alpha=self.alpha, filter=self.filter, fmin=self.fmin)
+        if self.gaps is not None:
+            chunks = chunk_timeseries(self.ht, self.gaps, windowing_alpha=self.alpha, filter=self.filter, fmin=self.fmin)
             chunksf = [c.to_frequencyseries() for c in chunks]
             for i in range(len(chunks)):
                 chunks[i].plot(ax=ax[2], color=f"C{i + 1}", label=f"Chunk {i}")
@@ -214,8 +215,8 @@ class AnalysisData:
 
         plot_tmax = self.tmax * 1.1
         for a in ax[2:]:
-            if self.gap is not None:
-                a.axvspan(self.gap.gap_start, self.gap.gap_end, edgecolor='gray', hatch='/', zorder=10, fill=False)
+            # if self.gaps is not None:
+            #     a.axvspan(self.gap.gap_start, self.gap.gap_end, edgecolor='gray', hatch='/', zorder=10, fill=False)
             a.axvline(self.tmax, color="red", linestyle="--", label="Tmax")
             a.set_xlim(self.tmax-plot_tmax, plot_tmax)
 
