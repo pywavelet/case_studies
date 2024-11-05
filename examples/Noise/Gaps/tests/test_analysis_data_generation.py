@@ -7,11 +7,11 @@ def test_analysis_data(plot_dir):
         noise=False,
         plotfn=f"{plot_dir}/analysis_data.png",
         alpha=0.1,
-        fmin=0.01,
+        highpass_fmin=0.0001,
     )
     d = AnalysisData.generate_data(
         noise=True,
         plotfn=f"{plot_dir}/noisy_analysis_data.png",
         alpha=0.1,
-        fmin=0.01,
+        highpass_fmin=0.0001,
     )

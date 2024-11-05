@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 from typing import List, Dict, Union, Tuple
 import numpy as np
+from sympy.abc import alpha
 
 from pywavelet.utils import evolutionary_psd_from_stationary_psd, compute_snr, compute_likelihood
 from pywavelet.transforms.types import Wavelet, TimeSeries, FrequencySeries
@@ -25,8 +26,9 @@ class AnalysisData:
     psd_freqseries: FrequencySeries
     gaps: GapWindow
     trues: List[float]
-    waveform_kwgs: Dict[str, Union[float, bool]]
     snrs: Dict[str, float]
+    alpha: float = 0.0
+    highpass_fmin: float = 7e-4
 
     @property
     def dt(self):
@@ -44,17 +46,6 @@ class AnalysisData:
     def time(self):
         return self.ht.time
 
-    @property
-    def alpha(self):
-        return self.waveform_kwgs["alpha"]
-
-    @property
-    def filter(self) -> bool:
-        return self.waveform_kwgs["filter"]
-
-    @property
-    def fmin(self):
-        return self.waveform_kwgs["fmin"]
 
     @classmethod
     def generate_data(
@@ -67,8 +58,7 @@ class AnalysisData:
             tmax: float = TMAX,
             noise: bool = False,
             alpha: float = 0.0,
-            fmin: float = 7e-4,
-            filter: bool = False,
+            highpass_fmin: float = 0,
             plotfn: str = "",
     ) -> "AnalysisData":
         """
@@ -83,7 +73,7 @@ class AnalysisData:
         :param noise_realisation: Flag to include noise realisation.
         :param seed_no: Seed number for random noise generation.
         :param alpha: Alpha parameter for the windowing function.
-        :param filter: Flag to apply a high-pass filter.
+        :param highpass_fmin: Minimum frequency for highpass filter. if None, no filter is applied.
         :param plotfn: Filename to save the plot.
 
         :return: Wavelet data, Wavelet PSD, and GapWindow
@@ -95,7 +85,7 @@ class AnalysisData:
         # ensure that the dt is small enough for given f and fdot
         dt = np.floor(0.4 / (2 * f))
         t = np.arange(0, tmax, dt)
-        ht = waveform_generator(*params, t, tmax, alpha, )
+        ht = waveform_generator(*params, t, tmax, alpha )
         hf = ht.to_frequencyseries()
         hw = ht.to_wavelet(Nf=Nf)
         psd = CornishPowerSpectralDensity(hf.freq)
@@ -129,15 +119,16 @@ class AnalysisData:
             print("------GAPPING------")
             gaps = GapWindow(data.time, gap_ranges, tmax=tmax)
             print(f"Using Gap: {gaps}")
-            data_wavelet = gaps.gap_and_transform_ht_to_wdm(data, Nf, alpha, filter, fmin)
-            hw = gaps.gap_and_transform_ht_to_wdm(ht, Nf, alpha, filter, fmin)
+            data_wavelet = gaps.gap_and_transform_ht_to_wdm(data, Nf, alpha, highpass_fmin)
+            hw = gaps.gap_and_transform_ht_to_wdm(ht, Nf, alpha, highpass_fmin)
             psd_wavelet = gaps.apply_nan_gap_to_wavelet(psd_wavelet)
         else:
             print("------NO GAPS------")
             gaps = None
-            data = data.highpass_filter(fmin=fmin, tukey_window_alpha=alpha)
+            if highpass_fmin>0:
+                data = data.highpass_filter(fmin=highpass_fmin, tukey_window_alpha=alpha)
+                ht = ht.highpass_filter(fmin=highpass_fmin, tukey_window_alpha=alpha)
             data_wavelet = data.to_wavelet(Nf=Nf)
-            ht = ht.highpass_filter(fmin=fmin, tukey_window_alpha=alpha)
             hw = ht.to_wavelet(Nf=Nf)
             psd_wavelet = psd_wavelet
 
@@ -165,8 +156,9 @@ class AnalysisData:
             psd,
             gaps,
             [a_true, ln_f_true, ln_fdot_true],
-            dict(alpha=alpha, filter=filter, fmin=fmin),
-            snrs
+            snrs,
+            alpha,
+            highpass_fmin
         )
 
         if plotfn:
@@ -189,7 +181,7 @@ class AnalysisData:
         hf.plot_periodogram(ax=ax[1], color="C0", label="Signal", alpha=1, lw=1)
         ax[1].loglog(self.psd_freqseries.freq, self.psd_freqseries.data, color="k", label="PSD")
         if self.gaps is not None:
-            chunks = self.gaps.chunk_timeseries(self.ht, **self.waveform_kwgs)
+            chunks = self.gaps.chunk_timeseries(self.ht, alpha=self.alpha, fmin=self.highpass_fmin)
             chunksf = [c.to_frequencyseries() for c in chunks]
             for i in range(len(chunks)):
                 chunks[i].plot(ax=ax[2], color=f"C{i + 1}", label=f"Chunk {i}")
@@ -213,11 +205,11 @@ class AnalysisData:
         ht = waveform_generator(a, f, fdot, self.time, self.tmax, self.alpha)
         if self.gaps is not None:
             hwavelet = self.gaps.gap_and_transform_ht_to_wdm(
-                ht, self.Nf, **self.waveform_kwgs
+                ht, self.Nf, self.alpha, self.highpass_fmin
             )
         else:
-            if self.filter:
-                ht = ht.highpass_filter(self.fmin, self.alpha)
+            if self.highpass_fmin>0:
+                ht = ht.highpass_filter(self.highpass_fmin, self.alpha)
             hwavelet = ht.to_wavelet(Nf=self.Nf)
         return hwavelet
 

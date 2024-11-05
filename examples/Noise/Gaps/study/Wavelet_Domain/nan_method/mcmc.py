@@ -7,15 +7,15 @@ os.makedirs(OUTDIR, exist_ok=True)
 
 if __name__ == '__main__':
     run_mcmc(
-        gap_range=[START_GAP, END_GAP],
+        gap_ranges=[[START_GAP, END_GAP]],
         n_iter=500,
         outdir=f"{OUTDIR}/gap",
         noise_realisation=True,
         alpha=0.1,
-        filter=True,
+        highpass_fmin=0
     )
     run_mcmc(
-        gap_range=None,
+        gap_ranges=None,
         n_iter=500,
         outdir=f"{OUTDIR}/no_gap",
         noise_realisation=True,

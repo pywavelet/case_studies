@@ -102,8 +102,7 @@ class GapWindow:
             self,
             ht: TimeSeries,
             alpha: float = 0,
-            filter: bool = False,
-            fmin: float = 7e-4,
+            fmin: float = 0,
     ) -> List[TimeSeries]:
         """
         Split a TimeSeries object into chunks based on the gaps.
@@ -113,7 +112,7 @@ class GapWindow:
         chunks = []
         for i, (t0_idx, tend_idx) in enumerate(self.non_gap_idxs()):
             ts =  ht[t0_idx:tend_idx].zero_pad_to_power_of_2(alpha)
-            if filter:
+            if fmin!=0:
                 ts.highpass_filter(fmin, alpha)
             chunks.append(ts)
         return chunks
@@ -123,13 +122,12 @@ class GapWindow:
             ht: TimeSeries,
             Nf: int,
             alpha: float = 0.0,
-            filter: bool = False,
-            fmin: float = 7e-4,
+            fmin: float = 0,
     ) -> Wavelet:
         # Split into chunks and apply wavelet transform each chunk
         chunked_wavelets = [
             self.apply_nan_gap_to_wavelet(c.to_wavelet(Nf=Nf))
-            for c in self.chunk_timeseries(ht, alpha, filter, fmin)
+            for c in self.chunk_timeseries(ht, alpha, fmin)
         ]
 
         # Setting up the final wavelet data array

@@ -40,7 +40,7 @@ def sample_prior(prior: PriorDict, n_samples=1) -> np.ndarray:
     return np.array(list(prior.sample(n_samples).values())).T
 
 
-def log_posterior(theta: List[float], analysis_data: AnalysisData) -> float:
+def log_posterior(theta: List[float], analysis_data:AnalysisData) -> float:
     _lp = log_prior(theta)
     if not np.isfinite(_lp):
         return -np.inf
@@ -55,8 +55,7 @@ def run_mcmc(
         Nf=NF,
         tmax=TMAX,
         alpha=0.0,
-        filter=False,
-        fmin=10 ** -4,
+        highpass_fmin=10 ** -4,
         noise_realisation=False,
         n_iter=2500,
         nwalkers=32,
@@ -88,9 +87,8 @@ def run_mcmc(
         gap_ranges=gap_ranges,
         Nf=Nf, tmax=tmax,
         alpha=alpha,
-        filter=filter,
         noise=noise_realisation,
-        fmin=fmin,
+        highpass_fmin=highpass_fmin,
         plotfn=f"{outdir}/data.png",
     )
 
@@ -107,6 +105,7 @@ def run_mcmc(
     pool = get_context("fork").Pool(N_cpus)
     sampler = emcee.EnsembleSampler(
         nwalkers, ndim, log_posterior, pool=pool,
+        args = (analysis_data,)
     )
     sampler.run_mcmc(x0, n_iter, progress=True)
     pool.close()

@@ -1,5 +1,7 @@
 import os
 
+from gwpy.signal.filter_design import highpass
+
 from gap_study_utils.analysis_data  import AnalysisData, generate_wavelet_with_gap
 
 from gap_study_utils.constants import A_TRUE, LN_F_TRUE, LN_FDOT_TRUE, START_GAP, END_GAP, NF, TMAX
@@ -31,7 +33,7 @@ def main(
         tmax=tmax,
         noise=True,
         alpha=0.0,
-        filter=False,
+        highpass_fmin=0
     )
 
 
@@ -47,7 +49,7 @@ def main(
             ht=noise_TS,
             Nf=analysis_data.Nf,
             alpha=analysis_data.alpha,
-            filter=analysis_data.filter
+            highpass_fmin=analysis_data.highpass_fmin
         )
 
         noise_wavelet_flat = noise_wavelet.data.flatten()
