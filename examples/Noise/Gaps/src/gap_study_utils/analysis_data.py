@@ -1,17 +1,15 @@
 import matplotlib.pyplot as plt
-from typing import List, Dict, Union
+from typing import List, Dict, Union, Tuple
 import numpy as np
 
-from pywavelet.utils import evolutionary_psd_from_stationary_psd, compute_snr
+from pywavelet.utils import evolutionary_psd_from_stationary_psd, compute_snr, compute_likelihood
 from pywavelet.transforms.types import Wavelet, TimeSeries, FrequencySeries
-
 
 from .signal_utils import waveform_generator
 from .noise_curves import CornishPowerSpectralDensity, generate_stationary_noise
-from .wavelet_data_utils import chunk_timeseries, generate_wavelet_with_gap
 from .gap_window import GapWindow
 
-from .constants import A_TRUE, LN_F_TRUE, LN_FDOT_TRUE,  NF, TMAX, GAP_RANGES
+from .constants import A_TRUE, LN_F_TRUE, LN_FDOT_TRUE, NF, TMAX, GAP_RANGES
 
 from dataclasses import dataclass
 
@@ -25,7 +23,7 @@ class AnalysisData:
     tmax: float
     psd: Wavelet
     psd_freqseries: FrequencySeries
-    gaps: List[GapWindow]
+    gaps: GapWindow
     trues: List[float]
     waveform_kwgs: Dict[str, Union[float, bool]]
     snrs: Dict[str, float]
@@ -51,13 +49,12 @@ class AnalysisData:
         return self.waveform_kwgs["alpha"]
 
     @property
-    def filter(self)->bool:
+    def filter(self) -> bool:
         return self.waveform_kwgs["filter"]
 
     @property
     def fmin(self):
         return self.waveform_kwgs["fmin"]
-
 
     @classmethod
     def generate_data(
@@ -65,7 +62,7 @@ class AnalysisData:
             a_true: float = A_TRUE,
             ln_f_true: float = LN_F_TRUE,
             ln_fdot_true: float = LN_FDOT_TRUE,
-            gap_ranges: List[float] = GAP_RANGES,
+            gap_ranges: List[Tuple[float, float]] = GAP_RANGES,
             Nf: int = NF,
             tmax: float = TMAX,
             noise: bool = False,
@@ -110,7 +107,6 @@ class AnalysisData:
         data = ht.copy()
         data_wavelet = hw.copy()
 
-
         if noise:
             print("Cooking up some noise...")
             noise_t = generate_stationary_noise(ND=ht.ND, dt=ht.dt, psd=psd)
@@ -122,9 +118,6 @@ class AnalysisData:
         matched_filter_snr = hf.matched_filter_snr(data.to_frequencyseries(), psd)
         matched_filter_wavelet_snr = compute_snr(data_wavelet, hw, psd_wavelet)
 
-
-
-
         print(f"Data: {ht}")
         print(f"Optimal freq-SNR: {optimal_snr:.2f}")
         print(f"Matched-filter freq-SNR: {matched_filter_snr:.2f}")
@@ -134,16 +127,11 @@ class AnalysisData:
         # Gap data
         if gap_ranges is not None:
             print("------GAPPING------")
-            gaps = [GapWindow(data.time, gap_range, tmax=tmax) for gap_range in gap_ranges]
+            gaps = GapWindow(data.time, gap_ranges, tmax=tmax)
             print(f"Using Gap: {gaps}")
-            data_wavelet = generate_wavelet_with_gap(
-                gaps=gaps, ht=data, Nf=Nf, alpha=alpha, filter=filter, fmin=fmin
-            )
-            hw = generate_wavelet_with_gap(
-                gaps=gaps, ht=ht, Nf=Nf, alpha=alpha, filter=filter, fmin=fmin
-            )
-            for g in gaps:
-                psd_wavelet = g.apply_nan_gap_to_wavelet(psd_wavelet)
+            data_wavelet = gaps.gap_and_transform_ht_to_wdm(data, Nf, alpha, filter, fmin)
+            hw = gaps.gap_and_transform_ht_to_wdm(ht, Nf, alpha, filter, fmin)
+            psd_wavelet = gaps.apply_nan_gap_to_wavelet(psd_wavelet)
         else:
             print("------NO GAPS------")
             gaps = None
@@ -189,7 +177,7 @@ class AnalysisData:
 
         hf = self.ht.to_frequencyseries()
 
-        fig, ax = plt.subplots(5, 1,  figsize=(5, 8))
+        fig, ax = plt.subplots(5, 1, figsize=(5, 8))
 
         # SNR info
         ax[0].axis("off")
@@ -201,7 +189,7 @@ class AnalysisData:
         hf.plot_periodogram(ax=ax[1], color="C0", label="Signal", alpha=1, lw=1)
         ax[1].loglog(self.psd_freqseries.freq, self.psd_freqseries.data, color="k", label="PSD")
         if self.gaps is not None:
-            chunks = chunk_timeseries(self.ht, self.gaps, windowing_alpha=self.alpha, filter=self.filter, fmin=self.fmin)
+            chunks = self.gaps.chunk_timeseries(self.ht, **self.waveform_kwgs)
             chunksf = [c.to_frequencyseries() for c in chunks]
             for i in range(len(chunks)):
                 chunks[i].plot(ax=ax[2], color=f"C{i + 1}", label=f"Chunk {i}")
@@ -215,11 +203,27 @@ class AnalysisData:
 
         plot_tmax = self.tmax * 1.1
         for a in ax[2:]:
-            # if self.gaps is not None:
-            #     a.axvspan(self.gap.gap_start, self.gap.gap_end, edgecolor='gray', hatch='/', zorder=10, fill=False)
             a.axvline(self.tmax, color="red", linestyle="--", label="Tmax")
-            a.set_xlim(self.tmax-plot_tmax, plot_tmax)
+            a.set_xlim(self.tmax - plot_tmax, plot_tmax)
 
         plt.savefig(plotfn, bbox_inches="tight")
 
+    def htemplate(self, a: float, ln_f: float, ln_fdot: float):
+        f, fdot = np.exp(ln_f), np.exp(ln_fdot)
+        ht = waveform_generator(a, f, fdot, self.time, self.tmax, self.alpha)
+        if self.gaps is not None:
+            hwavelet = self.gaps.gap_and_transform_ht_to_wdm(
+                ht, self.Nf, **self.waveform_kwgs
+            )
+        else:
+            if self.filter:
+                ht = ht.highpass_filter(self.fmin, self.alpha)
+            hwavelet = ht.to_wavelet(Nf=self.Nf)
+        return hwavelet
 
+    def lnl(self, a: float, ln_f: float, ln_fdot: float) -> float:
+        return compute_likelihood(
+            self.wavelet_data,
+            self.htemplate(a, ln_f, ln_fdot),
+            self.psd
+        )

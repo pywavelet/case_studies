@@ -1,25 +1,62 @@
 import emcee
-from .analysis_data import AnalysisData
-from .bayesian_functions import sample_prior, log_posterior, PRIOR, CENTERED_PRIOR
-from .constants import A_TRUE, LN_F_TRUE, LN_FDOT_TRUE, START_GAP, END_GAP, NF, TMAX, ONE_HOUR, TRUES
-from .plotting import plot_corner, make_mcmc_trace_gif, plot_mcmc_summary
-from .random import seed
+from typing import List
+from bilby.core.prior import Uniform, TruncatedGaussian, Gaussian, PriorDict
+
 from multiprocessing import (get_context, cpu_count)
-import numpy as np
 import os
 import arviz as az
-
 import warnings
+
+from .plotting import plot_corner, make_mcmc_trace_gif, plot_mcmc_summary
+from .random import seed
+from .constants import *
+from .analysis_data import AnalysisData
+
+
+PRIOR = PriorDict(dict(
+    a=Uniform(*A_RANGE),
+    ln_f=Uniform(*LN_F_RANGE),
+    ln_fdot=Uniform(*LN_FDOT_RANGE)
+))
+
+CENTERED_PRIOR = PriorDict(dict(
+    a=TruncatedGaussian(mu=A_TRUE, sigma=A_SCALE * 0.1, minimum=1e-25, maximum=1e-15),
+    ln_f=Gaussian(mu=LN_F_TRUE, sigma=LN_F_SCALE * 0.1),
+    ln_fdot=Gaussian(mu=LN_FDOT_TRUE, sigma=LN_FDOT_SCALE * 0.1)
+))
+
+
+def log_prior(theta):
+    a, ln_f, ln_fdot = theta
+    _lnp = PRIOR.ln_prob(dict(a=a, ln_f=ln_f, ln_fdot=ln_fdot))
+    if not np.isfinite(_lnp):
+        return -np.inf
+    else:
+        return 0.0
+
+
+def sample_prior(prior: PriorDict, n_samples=1) -> np.ndarray:
+    """Return (nsamp, ndim) array of samples"""
+    return np.array(list(prior.sample(n_samples).values())).T
+
+
+def log_posterior(theta: List[float], analysis_data: AnalysisData) -> float:
+    _lp = log_prior(theta)
+    if not np.isfinite(_lp):
+        return -np.inf
+    else:
+        _lnl = analysis_data.lnl(*theta)
+        return _lp + _lnl
 
 
 def run_mcmc(
         true_params=[A_TRUE, LN_F_TRUE, LN_FDOT_TRUE],
-        gap_range=[START_GAP, END_GAP],
+        gap_ranges=GAP_RANGES,
         Nf=NF,
         tmax=TMAX,
         alpha=0.0,
         filter=False,
-        fmin=10**-4,
+        fmin=10 ** -4,
         noise_realisation=False,
         n_iter=2500,
         nwalkers=32,
@@ -48,7 +85,7 @@ def run_mcmc(
 
     analysis_data = AnalysisData.generate_data(
         *true_params,
-        gap_range=gap_range,
+        gap_ranges=gap_ranges,
         Nf=Nf, tmax=tmax,
         alpha=alpha,
         filter=filter,
@@ -70,7 +107,6 @@ def run_mcmc(
     pool = get_context("fork").Pool(N_cpus)
     sampler = emcee.EnsembleSampler(
         nwalkers, ndim, log_posterior, pool=pool,
-        args=(analysis_data,),
     )
     sampler.run_mcmc(x0, n_iter, progress=True)
     pool.close()
