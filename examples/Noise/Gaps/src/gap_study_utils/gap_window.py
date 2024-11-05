@@ -1,29 +1,40 @@
-from numba import njit, prange
 from pywavelet.transforms.types import TimeSeries, Wavelet
 from pywavelet.transforms.types.plotting import _fmt_time_axis
 import numpy as np
 import matplotlib.pyplot as plt
-
-from typing import List
+from typing import List, Union, Tuple
+from pywavelet.transforms.forward.wavelet_bins import compute_bins
 
 
 class GapWindow:
-    def __init__(self, t: np.ndarray, gap_range: List[float], tmax: float):
-        self.gap_start = gap_range[0]
-        self.gap_end = gap_range[1]
-        self.nan_mask = self.__generate_nan_mask(t, self.gap_start, self.gap_end)
+    def __init__(self, t: np.ndarray, gap_ranges: List[Tuple[float, float]], tmax: float):
+        self.__overlap_check(gap_ranges)
+        self.gap_ranges = gap_ranges
+        self.n_gaps = len(gap_ranges)
+        self.nan_mask = self.__generate_nan_mask(t, gap_ranges)
         self.t = t
+        self.t0: float = t[0]
         self.tmax = tmax  # Note-- t[-1] is not necessarily tmax -- might be padded.
-        # first idx od nan
-        self.start_idx = np.argmax(self.nan_mask)
-        # last idx of nanx
-        self.end_idx = len(self.nan_mask) - np.argmax(self.nan_mask[::-1]) - 1
+        self.start_idxs = [np.argmin(np.abs(t - start)) for start, _ in gap_ranges]
+        self.end_idxs = [np.argmin(np.abs(t - end)) - 1 for _, end in gap_ranges]
+
+    def non_gap_idxs(self) -> List[Tuple[int, int]]:
+        """
+        Returns:
+            List[List[int]]: List [[start, end]] of non-gap indices (N_gaps + 1)
+        """
+        idxs = []
+        data_start = 0
+        for gap_start, gap_end in zip(self.start_idxs, self.end_idxs):
+            idxs.append((data_start,gap_start-1))
+            data_start = gap_end + 1
+        idxs.append((data_start, len(self.t) - 1))
+        return idxs
 
     def __len__(self):
         return len(self.nan_mask)
 
     def gap_len(self):
-        # number of nan values
         return np.sum(np.isnan(self.nan_mask))
 
     @property
@@ -38,78 +49,108 @@ class GapWindow:
         return f"GapWindow({self.num_nans:,}/{len(self.nan_mask):,} NaNs)"
 
     @staticmethod
-    def __generate_nan_mask(t: np.ndarray, start_window: float, end_window: float):
-        """
-        Insert NaN values in a given time window to simulate gaps in the data.
-
-        Parameters:
-        - t: Time array.
-        - start_window: Start of the gap window in hours.
-        - end_window: End of the gap window in hours.
-        - delta_t: Time step.
-
-        Returns:
-        - nan_window:
-            List with 1s for valid data and NaNs for missing data in the gap.
-            [1, 1, 1, ..., NaN, NaN, ..., 1, 1, 1] for
-            [t0...t_start_window, ..t_end_window, ...t_end]
-
-        """
-        return [np.nan if start_window < time < end_window else 1 for time in t]
+    def __generate_nan_mask(t: np.ndarray, gap_ranges: List[Tuple[float,float]])->np.ndarray:
+        nan_mask = np.ones_like(t)
+        for start_window, end_window in gap_ranges:
+            nan_mask[(t > start_window) & (t < end_window)] = np.nan
+        return nan_mask
 
     def apply_window(self, timeseries) -> TimeSeries:
-        """
-        Apply the gap window to a given time series.
-
-        Parameters:
-        - timeseries: Time series to apply the gap window.
-
-        Returns:
-        - TimeSeries:
-            Time series with NaN values in the gap window.
-
-        """
         return TimeSeries(timeseries.data * self.nan_mask, self.t)
 
-    def apply_nan_gap_to_wavelet(self, w: Wavelet):
-        """
-        Apply the gap window to a given wavelet.
-
-        Parameters:
-        - w: Wavelet to apply the gap window.
-
-        Returns:
-        - Wavelet:
-            Wavelet with NaN values in the gap window.
-
-        """
+    def apply_nan_gap_to_wavelet(self, w: Wavelet)->Wavelet:
         data, t = w.data.copy(), w.time
         nan_mask = self.get_nan_mask_for_timeseries(t)
         time_mask = self.inside_timeseries(t)
         data[:, nan_mask] = np.nan
         return Wavelet(data[:, time_mask], t[time_mask], w.freq)
 
-    def get_nan_mask_for_timeseries(self, t):
-        """Gets a mask for the given time series -- True for NaNs, False for valid data."""
+    def get_nan_mask_for_timeseries(self, t)->Union[bool, np.ndarray]:
         return ~self.valid_t(t)
 
-    def inside_gap(self, t: float):
-        # if t inside [gap_start, gap_end], True
-        # else False
-        return (self.gap_start <= t) & (t <= self.gap_end)
+    def inside_gap(self, t: float) -> bool:
+        mask = np.zeros_like(t, dtype=bool)
+        for gap_start, gap_end in self.gap_ranges:
+            mask |= (gap_start <= t) & (t <= gap_end)
+        return mask
 
-    def inside_timeseries(self, t: np.ndarray):
+
+    def inside_timeseries(self, t: np.ndarray)->bool:
         return (self.t[0] <= t) & (t <= self.tmax)
 
-    def valid_t(self, t: float):
-        # if t inside timeseries and outside gap, True
-        return self.inside_timeseries(t) & ~ self.inside_gap(t)
+    def valid_t(self, t: Union[float, np.ndarray])->bool:
+        return self.inside_timeseries(t) & ~self.inside_gap(t)
 
-    def plot(self, ax: plt.Axes = None):
+    def plot(self, ax: plt.Axes = None)->Union[None, plt.Axes]:
         if ax is None:
             fig, ax = plt.subplots()
-        # axvspans across gap windows
-        ax.axvspan(self.gap_start, self.gap_end, color="gray", alpha=0.2)
-        _fmt_time_axis(self.t, ax)
-        ax.legend()
+        for gap_start, gap_end in self.gap_ranges:
+            ax.axvspan(gap_start, gap_end, alpha=0.2, edgecolor = 'gray', hatch = '/', zorder = 10, fill = False)
+        _fmt_time_axis(self.t, ax, self.t0, self.tmax)
         return ax
+
+    @staticmethod
+    def __overlap_check(gap_ranges: List[Tuple[float, float]]):
+        for i in range(len(gap_ranges) - 1):
+            if gap_ranges[i][1] > gap_ranges[i + 1][0]:
+                raise ValueError(
+                    "Gap ranges must not overlap. Found overlap between "
+                    f"{gap_ranges[i]} and {gap_ranges[i + 1]}"
+                )
+
+    def chunk_timeseries(
+            self,
+            ht: TimeSeries,
+            alpha: float = 0,
+            filter: bool = False,
+            fmin: float = 7e-4,
+    ) -> List[TimeSeries]:
+        """
+        Split a TimeSeries object into chunks based on the gaps.
+        Returns:
+            Ngaps+1 time series chunks
+        """
+        chunks = []
+        for i, (t0_idx, tend_idx) in enumerate(self.non_gap_idxs()):
+            ts =  ht[t0_idx:tend_idx].zero_pad_to_power_of_2(alpha)
+            if filter:
+                ts.highpass_filter(fmin, alpha)
+            chunks.append(ts)
+        return chunks
+
+    def gap_and_transform_ht_to_wdm(
+            self,
+            ht: TimeSeries,
+            Nf: int,
+            alpha: float = 0.0,
+            filter: bool = False,
+            fmin: float = 7e-4,
+    ) -> Wavelet:
+        # Split into chunks and apply wavelet transform each chunk
+        chunked_wavelets = [
+            self.apply_nan_gap_to_wavelet(c.to_wavelet(Nf=Nf))
+            for c in self.chunk_timeseries(ht, alpha, filter, fmin)
+        ]
+
+        # Setting up the final wavelet data array
+        Nt = ht.ND // Nf
+        time_bins, freq_bins = compute_bins(Nf, Nt, ht.duration)
+        stitched_data = np.full((Nf, Nt), np.nan)
+
+
+        # Fill in data from each wavelet chunk, handling the time alignment
+        for i, w in enumerate(chunked_wavelets):
+            # Get indices for matching time_bins with wavelet time
+            stich_tmask = np.zeros(Nt, dtype=bool)
+            stich_tmask[np.argmin(np.abs(time_bins[:, None] - w.time), axis=0)] = True
+
+            # Get mask for valid time values in the wavelet
+            w_tmask = np.zeros(w.Nt, dtype=bool)
+            w_tmask[np.argmin(np.abs(w.time[:, None] - time_bins), axis=0)] = True
+
+            # Apply chunk data to final wavelet data array
+            stitched_data[:, stich_tmask] = chunked_wavelets[i].data[:, w_tmask]
+
+        # Truncate data up to tmax if specified
+        tmask = time_bins <= self.tmax
+        return Wavelet(stitched_data[:, tmask], time_bins[tmask], freq_bins)
