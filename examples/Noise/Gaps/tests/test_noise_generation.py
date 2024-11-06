@@ -1,5 +1,6 @@
 from gap_study_utils.noise_curves import generate_stationary_noise
 from gap_study_utils.noise_curves import CornishPowerSpectralDensity
+from pywavelet.utils import evolutionary_psd_from_stationary_psd
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -36,7 +37,7 @@ def test_generate_stationary_noise(plot_dir):
     filtered_freq = filtered_time.to_frequencyseries()
 
 
-    fig, axes = plt.subplots(2, 1, figsize=(10, 10))
+    fig, axes = plt.subplots(3, 1, figsize=(10, 10))
 
     fig.suptitle(label)
     axes[0].loglog(psd.freq, psd.data, color='black', label='PSD')
@@ -45,7 +46,11 @@ def test_generate_stationary_noise(plot_dir):
     filtered_freq.plot_periodogram(ax=axes[0], color='tab:red', alpha=0.5, label='Filtered Noise (f > 10^-3 Hz)')
     filtered_time.plot(ax=axes[1], color='tab:red', alpha=0.5)
     axes[0].legend()
-    plt.tight_layout()
+    w = filtered_freq.to_wavelet(Nf=64)
+    w_psd = evolutionary_psd_from_stationary_psd(psd.data, psd.freq, w.freq, w.time, dt=psd.dt)
+    w.plot(ax=axes[2], show_colorbar=False, label="Filterd Wavelet\n", whiten_by=w_psd.data)
+    axes[0].tick_params(axis='x', which='both', top=True)
+    plt.subplots_adjust(hspace=0)
     fig.savefig(f"{plot_dir}/stationary_noise.png")
 
 

@@ -44,10 +44,21 @@ def test_gap_window_wavelet(plot_dir):
     for i in range(len(chunked_wavelets)):
         chunked_wavelets[i].plot(ax=axes[i], show_colorbar=False)
     axes[0].set_xlim(0, gap_window.tmax)
-    w = gap_window.gap_and_transform_ht_to_wdm(ht, Nf=Nf, alpha=0.1)
+    w = gap_window.gap_timeseries_chunk_transform_wdm_n_stitch(ht, Nf=Nf, alpha=0.1)
     w.plot(ax=axes[-1], show_colorbar=False)
 
     for a in axes:
         gap_window.plot(ax=a)
 
     fig.savefig(f"{plot_dir}/gap_window_wavelet.png")
+
+def test_quentin_gap_method(plot_dir):
+    gap_ranges = [(0.1, 0.2), (0.3, 0.4)]
+    t = np.linspace(0, 1, 4096)
+    ht = TimeSeries(np.sin(2 * np.pi * 200 * t), t)
+    gap_window = GapWindow(t, gap_ranges, 1)
+    w = gap_window.gap_timeseries_with_0s_n_transform(ht, Nf=8)
+    fig, ax = plt.subplots(1, 1)
+    w.plot(ax=ax)
+    gap_window.plot(ax=ax)
+    fig.savefig(f"{plot_dir}/quentin_gap_method.png")

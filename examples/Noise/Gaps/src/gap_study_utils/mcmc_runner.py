@@ -1,6 +1,7 @@
 import emcee
 from typing import List
 from bilby.core.prior import Uniform, TruncatedGaussian, Gaussian, PriorDict
+import time
 
 from multiprocessing import (get_context, cpu_count)
 import os
@@ -11,6 +12,7 @@ from .plotting import plot_corner, make_mcmc_trace_gif, plot_mcmc_summary
 from .random import seed
 from .constants import *
 from .analysis_data import AnalysisData
+
 
 
 PRIOR = PriorDict(dict(
@@ -54,6 +56,7 @@ def run_mcmc(
         gap_ranges=GAP_RANGES,
         Nf=NF,
         tmax=TMAX,
+        dt=DT,
         alpha=0.0,
         highpass_fmin=10 ** -4,
         noise_realisation=False,
@@ -78,6 +81,7 @@ def run_mcmc(
     :param random_seedrandom_seed: Seed number for data_generation + MCMC.
     :param outdir: Output directory to save the chain + plots.
     """
+    _start_time = time.time()
     os.makedirs(outdir, exist_ok=True)
     if random_seed is not None:
         seed(random_seed)
@@ -85,6 +89,7 @@ def run_mcmc(
     analysis_data = AnalysisData.generate_data(
         *true_params,
         gap_ranges=gap_ranges,
+        dt=dt,
         Nf=Nf, tmax=tmax,
         alpha=alpha,
         noise=noise_realisation,
@@ -128,3 +133,16 @@ def run_mcmc(
         idata_fname, analysis_data,
         fname=f'{outdir}/summary.png'
     )
+    runtime = time.time() - _start_time
+    print(f"Runtime: {_fmt_rutime(runtime)}")
+
+def _fmt_rutime(t):
+    hours, remainder = divmod(t, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    fmt = ""
+    if hours:
+        fmt += f"{int(hours)}h"
+    if minutes:
+        fmt += f"{int(minutes)}m"
+    if seconds:
+        fmt += f"{int(seconds)}s"

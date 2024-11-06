@@ -46,9 +46,21 @@ def plot_mcmc_summary(idata, analysis_data:AnalysisData, i=None, fname=None):
     fig, axes = plt.subplots(4, 2, figsize=(10, 10))
     fig.suptitle(f"Iteration {i}")
     plot_trace(idata, axes, i, max_iter)
-    analysis_data.wavelet_data.plot(ax=axes[3, 0], show_colorbar=False)
-    htemplate.plot(ax=axes[3, 1], show_colorbar=False)
-    htemplate.plot_trend(ax=axes[3, 1], color='black')
+    analysis_data.wavelet_data.plot(
+        ax=axes[3, 0],
+        show_colorbar=False,
+        label="Whiten Data\n",
+        whiten_by=analysis_data.psd.data,
+        absolute=True,
+        zscale="log"
+    )
+    htemplate.plot(
+        ax=axes[3, 1],
+        show_colorbar=False,
+        label="ith-sample Signal\n",
+        absolute=True,
+        zscale="log"
+    )
     if fname:
         plt.tight_layout()
         plt.savefig(fname)

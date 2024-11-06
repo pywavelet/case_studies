@@ -12,6 +12,7 @@ class GapWindow:
         self.gap_ranges = gap_ranges
         self.n_gaps = len(gap_ranges)
         self.nan_mask = self.__generate_nan_mask(t, gap_ranges)
+        self.gap_bools = np.isnan(self.nan_mask) # True for valid data, False for gaps
         self.t = t
         self.t0: float = t[0]
         self.tmax = tmax  # Note-- t[-1] is not necessarily tmax -- might be padded.
@@ -55,6 +56,8 @@ class GapWindow:
             nan_mask[(t > start_window) & (t < end_window)] = np.nan
         return nan_mask
 
+
+
     def apply_window(self, timeseries) -> TimeSeries:
         return TimeSeries(timeseries.data * self.nan_mask, self.t)
 
@@ -81,11 +84,18 @@ class GapWindow:
     def valid_t(self, t: Union[float, np.ndarray])->bool:
         return self.inside_timeseries(t) & ~self.inside_gap(t)
 
-    def plot(self, ax: plt.Axes = None)->Union[None, plt.Axes]:
+    def plot(self, ax: plt.Axes = None, **kwgs)->Union[None, plt.Axes]:
         if ax is None:
             fig, ax = plt.subplots()
+
+        kwgs['alpha'] = kwgs.get('alpha', 0.2)
+        kwgs['edgecolor'] = kwgs.get('edgecolor', 'gray')
+        kwgs['hatch'] = kwgs.get('hatch', '/')
+        kwgs['zorder'] = kwgs.get('zorder', 10)
+        kwgs['fill'] = kwgs.get('fill', False)
+
         for gap_start, gap_end in self.gap_ranges:
-            ax.axvspan(gap_start, gap_end, alpha=0.2, edgecolor = 'gray', hatch = '/', zorder = 10, fill = False)
+            ax.axvspan(gap_start, gap_end, **kwgs)
         _fmt_time_axis(self.t, ax, self.t0, self.tmax)
         return ax
 
@@ -117,7 +127,7 @@ class GapWindow:
             chunks.append(ts)
         return chunks
 
-    def gap_and_transform_ht_to_wdm(
+    def gap_timeseries_chunk_transform_wdm_n_stitch(
             self,
             ht: TimeSeries,
             Nf: int,
@@ -152,3 +162,12 @@ class GapWindow:
         # Truncate data up to tmax if specified
         tmask = time_bins <= self.tmax
         return Wavelet(stitched_data[:, tmask], time_bins[tmask], freq_bins)
+
+
+    def gap_timeseries_with_0s_n_transform(self, ht: TimeSeries, Nf: int, alpha: float = 0.0, fmin: float = 0):
+        if fmin != 0:
+            ht.highpass_filter(fmin, alpha)
+        # convert gapped timepoints to 0s
+        ht.data[self.gap_bools] = 0
+        # Apply wavelet transform
+        return ht.to_wavelet(Nf=Nf)

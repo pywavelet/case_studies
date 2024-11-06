@@ -5,6 +5,7 @@ ONE_DAY = 24 * ONE_HOUR
 A_TRUE = 1e-20
 F_TRUE = 3e-3
 FDOT_TRUE = 1e-8
+DT = np.floor(0.4 / (2 * F_TRUE))
 
 LN_F_TRUE = np.log(F_TRUE)
 LN_FDOT_TRUE = np.log(FDOT_TRUE)

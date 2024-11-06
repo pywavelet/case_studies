@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
-from typing import List, Dict, Union, Tuple
+from typing import List, Dict, Tuple
 import numpy as np
-from sympy.abc import alpha
+from numpy.ma.core import absolute
 
 from pywavelet.utils import evolutionary_psd_from_stationary_psd, compute_snr, compute_likelihood
 from pywavelet.transforms.types import Wavelet, TimeSeries, FrequencySeries
@@ -10,7 +10,7 @@ from .signal_utils import waveform_generator
 from .noise_curves import CornishPowerSpectralDensity, generate_stationary_noise
 from .gap_window import GapWindow
 
-from .constants import A_TRUE, LN_F_TRUE, LN_FDOT_TRUE, NF, TMAX, GAP_RANGES
+from .constants import F_TRUE, A_TRUE, LN_F_TRUE, LN_FDOT_TRUE, NF, TMAX, GAP_RANGES, DT
 
 from dataclasses import dataclass
 
@@ -56,6 +56,7 @@ class AnalysisData:
             gap_ranges: List[Tuple[float, float]] = GAP_RANGES,
             Nf: int = NF,
             tmax: float = TMAX,
+            dt:float = DT,
             noise: bool = False,
             alpha: float = 0.0,
             highpass_fmin: float = 0,
@@ -82,9 +83,11 @@ class AnalysisData:
         """
         f, fdot = np.exp(ln_f_true), np.exp(ln_fdot_true)
         params = [a_true, f, fdot]
-        # ensure that the dt is small enough for given f and fdot
-        dt = np.floor(0.4 / (2 * f))
+        N = 2**int(np.floor(np.log2(tmax / dt)))
+        tmax = N * dt
         t = np.arange(0, tmax, dt)
+
+        print(f"Generating data with dt={dt:.2e}, N=2**{int(np.log2(N))}={N:,}")
         ht = waveform_generator(*params, t, tmax, alpha )
         hf = ht.to_frequencyseries()
         hw = ht.to_wavelet(Nf=Nf)
@@ -119,8 +122,8 @@ class AnalysisData:
             print("------GAPPING------")
             gaps = GapWindow(data.time, gap_ranges, tmax=tmax)
             print(f"Using Gap: {gaps}")
-            data_wavelet = gaps.gap_and_transform_ht_to_wdm(data, Nf, alpha, highpass_fmin)
-            hw = gaps.gap_and_transform_ht_to_wdm(ht, Nf, alpha, highpass_fmin)
+            data_wavelet = gaps.gap_timeseries_chunk_transform_wdm_n_stitch(data, Nf, alpha, highpass_fmin)
+            hw = gaps.gap_timeseries_chunk_transform_wdm_n_stitch(ht, Nf, alpha, highpass_fmin)
             psd_wavelet = gaps.apply_nan_gap_to_wavelet(psd_wavelet)
         else:
             print("------NO GAPS------")
@@ -169,7 +172,7 @@ class AnalysisData:
 
         hf = self.ht.to_frequencyseries()
 
-        fig, ax = plt.subplots(5, 1, figsize=(5, 8))
+        fig, ax = plt.subplots(6, 1, figsize=(5, 8))
 
         # SNR info
         ax[0].axis("off")
@@ -177,34 +180,39 @@ class AnalysisData:
         ax[0].text(0.1, 0.5, snr_text, fontsize=8, verticalalignment="center")
 
         # timeseries + frequency series
-        self.ht.plot(ax=ax[2], color="C0", label="Signal", alpha=0.9, lw=0.1)
         hf.plot_periodogram(ax=ax[1], color="C0", label="Signal", alpha=1, lw=1)
         ax[1].loglog(self.psd_freqseries.freq, self.psd_freqseries.data, color="k", label="PSD")
+        ax[1].set_xlim(left=self.highpass_fmin, right=hf.freq[-1])
+        ax[1].tick_params(axis="x", direction="in", labelbottom=False,top=True, labeltop=True)
+        self.ht.plot(ax=ax[2], color="C0", label="Signal", alpha=0.9, lw=0.1)
         if self.gaps is not None:
             chunks = self.gaps.chunk_timeseries(self.ht, alpha=self.alpha, fmin=self.highpass_fmin)
             chunksf = [c.to_frequencyseries() for c in chunks]
             for i in range(len(chunks)):
-                chunks[i].plot(ax=ax[2], color=f"C{i + 1}", label=f"Chunk {i}")
-                chunksf[i].plot_periodogram(ax=ax[1], color=f"C{i + 1}", label=f"Chunk {i}")
-        # ax[1].legend(loc="upper right" )
+                chunks[i].plot(ax=ax[2], color=f"C{i + 1}", label=f"Chunk {i}", alpha=0.5)
+                chunksf[i].plot_periodogram(ax=ax[1], color=f"C{i + 1}", label=f"Chunk {i}", alpha=0.5)
 
         # Wavelet + psd
-        self.wavelet_data.plot(ax=ax[3], show_colorbar=False)
-        self.hwavelet.plot_trend(ax=ax[3])
-        self.psd.plot(ax=ax[4], show_colorbar=False)
+        self.wavelet_data.plot(ax=ax[3], show_colorbar=False, label="Whiten Data\n", whiten_by=self.psd.data, absolute=True,zscale="log")
+        self.hwavelet.plot(ax=ax[4], show_colorbar=False, label="Signal\n", absolute=True,zscale="log")
+        self.psd.plot(ax=ax[5], show_colorbar=False, label="PSD\n", absolute=True,zscale="log")
 
-        plot_tmax = self.tmax * 1.1
+        # remove hspace between plots [2:]
+        plt.subplots_adjust(hspace=0)
         for a in ax[2:]:
             a.axvline(self.tmax, color="red", linestyle="--", label="Tmax")
-            a.set_xlim(self.tmax - plot_tmax, plot_tmax)
-
+            a.set_xlim(0, self.tmax)
+            if self.gaps:
+                self.gaps.plot(ax=a, alpha=0.8, edgecolor='lightgray')
+        for a in ax[3:]:
+            a.set_ylim(bottom=self.highpass_fmin)
         plt.savefig(plotfn, bbox_inches="tight")
 
     def htemplate(self, a: float, ln_f: float, ln_fdot: float):
         f, fdot = np.exp(ln_f), np.exp(ln_fdot)
         ht = waveform_generator(a, f, fdot, self.time, self.tmax, self.alpha)
         if self.gaps is not None:
-            hwavelet = self.gaps.gap_and_transform_ht_to_wdm(
+            hwavelet = self.gaps.gap_timeseries_chunk_transform_wdm_n_stitch(
                 ht, self.Nf, self.alpha, self.highpass_fmin
             )
         else:
