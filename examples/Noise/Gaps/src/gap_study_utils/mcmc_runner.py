@@ -12,7 +12,8 @@ from .plotting import plot_corner, make_mcmc_trace_gif, plot_mcmc_summary
 from .random import seed
 from .constants import *
 from .analysis_data import AnalysisData
-
+from .gap_window import GapType
+from .signal_utils import waveform
 
 
 PRIOR = PriorDict(dict(
@@ -86,14 +87,18 @@ def run_mcmc(
     if random_seed is not None:
         seed(random_seed)
 
-    analysis_data = AnalysisData.generate_data(
-        *true_params,
-        gap_ranges=gap_ranges,
-        dt=dt,
-        Nf=Nf, tmax=tmax,
-        alpha=alpha,
-        noise=noise_realisation,
-        highpass_fmin=highpass_fmin,
+    analysis_data = AnalysisData(
+        data_kwargs=dict(
+            dt=dt, noise=noise_realisation, tmax=tmax,
+            highpass_fmin=highpass_fmin,
+            alpha=alpha
+        ),
+        gap_kwargs=dict(
+            type=GapType.STITCH,
+            gap_ranges=gap_ranges
+        ),
+        waveform_generator=waveform,
+        waveform_parameters=true_params,
         plotfn=f"{outdir}/data.png",
     )
 

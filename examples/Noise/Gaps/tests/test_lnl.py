@@ -8,10 +8,6 @@ import numpy as np
 
 def test_lnl(plot_dir):
     data = AnalysisData.generate_data(
-        *TRUES,
-        noise=False,
-        gap_ranges=None,
-        Nf=32,
 
     )
     template = data.htemplate(*TRUES)

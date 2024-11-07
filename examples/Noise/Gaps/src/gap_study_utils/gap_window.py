@@ -25,7 +25,7 @@ class GapType(Enum):
 class GapWindow:
     def __init__(
             self,
-            t: np.ndarray,
+            time: np.array,
             gap_ranges:
             List[Tuple[float, float]],
             tmax: float,
@@ -34,13 +34,13 @@ class GapWindow:
         self.__overlap_check(gap_ranges)
         self.gap_ranges = gap_ranges
         self.n_gaps = len(gap_ranges)
-        self.nan_mask = self.__generate_nan_mask(t, gap_ranges)
+        self.nan_mask = self.__generate_nan_mask(time, gap_ranges)
         self.gap_bools = np.isnan(self.nan_mask) # True for valid data, False for gaps
-        self.t = t
-        self.t0: float = t[0]
+        self.time = time
+        self.t0: float = time[0]
         self.tmax = tmax  # Note-- t[-1] is not necessarily tmax -- might be padded.
-        self.start_idxs = [np.argmin(np.abs(t - start)) for start, _ in gap_ranges]
-        self.end_idxs = [np.argmin(np.abs(t - end)) - 1 for _, end in gap_ranges]
+        self.start_idxs = [np.argmin(np.abs(time - start)) for start, _ in gap_ranges]
+        self.end_idxs = [np.argmin(np.abs(time- end)) - 1 for _, end in gap_ranges]
         self.type = type
 
     def non_gap_idxs(self) -> List[Tuple[int, int]]:
@@ -53,7 +53,7 @@ class GapWindow:
         for gap_start, gap_end in zip(self.start_idxs, self.end_idxs):
             idxs.append((data_start,gap_start-1))
             data_start = gap_end + 1
-        idxs.append((data_start, len(self.t) - 1))
+        idxs.append((data_start, len(self.time) - 1))
         return idxs
 
     def __len__(self):
@@ -75,16 +75,17 @@ class GapWindow:
 
     @staticmethod
     def __generate_nan_mask(t: np.ndarray, gap_ranges: List[Tuple[float,float]])->np.ndarray:
-        """Returns [1,1,1,nan,nan,nan,1,1,1] , where nan is in the gap"""
-        nan_mask = np.ones_like(t)
+        """Returns [1,1,1,0,0,0,1,1,1] , where nan is in the gap"""
+        nan_mask = np.ones_like(t, dtype=float)
         for start_window, end_window in gap_ranges:
-            nan_mask[(t > start_window) & (t < end_window)] = np.nan
+            mask = (t > start_window) & (t < end_window)
+            nan_mask[mask] = np.nan
         return nan_mask
 
 
 
     def apply_window(self, timeseries) -> TimeSeries:
-        return TimeSeries(timeseries.data * self.nan_mask, self.t)
+        return TimeSeries(timeseries.data * self.nan_mask, self.time)
 
     def apply_nan_gap_to_wavelet(self, w: Wavelet)->Wavelet:
         data, t = w.data.copy(), w.time
@@ -104,7 +105,7 @@ class GapWindow:
 
 
     def inside_timeseries(self, t: np.ndarray)->bool:
-        return (self.t[0] <= t) & (t <= self.tmax)
+        return (self.t0 <= t) & (t <= self.tmax)
 
     def valid_t(self, t: Union[float, np.ndarray])->bool:
         return self.inside_timeseries(t) & ~self.inside_gap(t)
@@ -121,7 +122,7 @@ class GapWindow:
 
         for gap_start, gap_end in self.gap_ranges:
             ax.axvspan(gap_start, gap_end, **kwgs)
-        _fmt_time_axis(self.t, ax, self.t0, self.tmax)
+        _fmt_time_axis(self.time, ax, self.t0, self.tmax)
         return ax
 
     @staticmethod

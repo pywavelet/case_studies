@@ -15,4 +15,4 @@ def plot_dir():
 
 @pytest.fixture
 def test_data() -> AnalysisData:
-    return AnalysisData.generate_data()
+    return AnalysisData.DEFAULT()

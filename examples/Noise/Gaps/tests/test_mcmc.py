@@ -6,12 +6,9 @@ def test_mcmc(plot_dir):
     filtering_kwgs = dict(
         noise_realisation=True,
         alpha=0.1,
-        highpass_fmin=0.0001
-    )
-    filtering_kwgs = dict(
-        noise_realisation=False,
-        # fmin=0.0001,
-        # alpha=0.1,
+        highpass_fmin=0.0001,
+        dt=10,
+        tmax=655360,
     )
 
     run_mcmc(
