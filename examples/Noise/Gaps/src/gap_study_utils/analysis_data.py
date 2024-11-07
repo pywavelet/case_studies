@@ -141,8 +141,8 @@ class AnalysisData:
         print(f"Optimal gapped WDM-SNR: {optimal_gapped_wdm_snr:.2f}")
         print(f"Matched-filter gapped WDM-SNR: {matched_filter_gapped_wdm_snr:.2f}")
         assert matched_filter_gapped_wdm_snr != 0, "SNR is 0... Something went wrong!"
-        # if not np.isfinite(matched_filter_gapped_wdm_snr):
-        #     raise ValueError("SNR is non-finite... Something went wrong!")
+        if not np.isfinite(matched_filter_gapped_wdm_snr):
+            raise ValueError("SNR is non-finite... Something went wrong!")
 
 
         snrs = dict(
