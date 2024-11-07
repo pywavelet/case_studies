@@ -50,11 +50,18 @@ class GapWindow:
         """
         idxs = []
         data_start = 0
-        for gap_start, gap_end in zip(self.start_idxs, self.end_idxs):
+        for (gap_start, gap_end) in self.gap_idxs():
             idxs.append((data_start,gap_start-1))
             data_start = gap_end + 1
         idxs.append((data_start, len(self.time) - 1))
         return idxs
+
+    def gap_idxs(self) -> List[Tuple[int, int]]:
+        """
+        Returns:
+            List[List[int]]: List [[start, end]] of gap indices (N_gaps)
+        """
+        return list(zip(self.start_idxs, self.end_idxs))
 
     def __len__(self):
         return len(self.nan_mask)

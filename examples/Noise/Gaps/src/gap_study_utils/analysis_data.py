@@ -94,7 +94,10 @@ class AnalysisData:
         n_pwr_2 = 2 ** int(np.log2(n))
         if n != n_pwr_2:
             suggestion = dict(dt=self.dt, tmax=n_pwr_2 * self.dt)
-            raise ValueError(f"ND must be a power of 2. Suggested settings:\n\t {suggestion}")
+            current = dict(dt=self.dt, tmax=self.tmax)
+            raise ValueError(f"ND must be a power of 2."
+                             f"Current settings:\n\t {current}\n"
+                             f"Suggested settings:\n\t {suggestion}")
         self.__ND = n
 
     @property
