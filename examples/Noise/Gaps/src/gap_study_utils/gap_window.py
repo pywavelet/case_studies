@@ -4,10 +4,33 @@ import numpy as np
 import matplotlib.pyplot as plt
 from typing import List, Union, Tuple
 from pywavelet.transforms.forward.wavelet_bins import compute_bins
+from enum import Enum
+
+class GapType(Enum):
+    STITCH = 1
+    RECTANGULAR_WINDOW = 2
+
+    def __repr__(self):
+        # name without the class name
+        return self.name.split(".")[-1]
+
+    def __str__(self):
+        return self.__repr__()
+
+    @staticmethod
+    def all_types()->List['GapType']:
+        return [*GapType]
 
 
 class GapWindow:
-    def __init__(self, t: np.ndarray, gap_ranges: List[Tuple[float, float]], tmax: float):
+    def __init__(
+            self,
+            t: np.ndarray,
+            gap_ranges:
+            List[Tuple[float, float]],
+            tmax: float,
+            type: GapType = GapType.STITCH
+    ):
         self.__overlap_check(gap_ranges)
         self.gap_ranges = gap_ranges
         self.n_gaps = len(gap_ranges)
@@ -18,6 +41,7 @@ class GapWindow:
         self.tmax = tmax  # Note-- t[-1] is not necessarily tmax -- might be padded.
         self.start_idxs = [np.argmin(np.abs(t - start)) for start, _ in gap_ranges]
         self.end_idxs = [np.argmin(np.abs(t - end)) - 1 for _, end in gap_ranges]
+        self.type = type
 
     def non_gap_idxs(self) -> List[Tuple[int, int]]:
         """
@@ -47,10 +71,11 @@ class GapWindow:
         return self.num_nans / len(self.nan_mask)
 
     def __repr__(self):
-        return f"GapWindow({self.num_nans:,}/{len(self.nan_mask):,} NaNs)"
+        return f"GapWindow({self.type}, {self.num_nans:,}/{len(self.nan_mask):,} NaNs)"
 
     @staticmethod
     def __generate_nan_mask(t: np.ndarray, gap_ranges: List[Tuple[float,float]])->np.ndarray:
+        """Returns [1,1,1,nan,nan,nan,1,1,1] , where nan is in the gap"""
         nan_mask = np.ones_like(t)
         for start_window, end_window in gap_ranges:
             nan_mask[(t > start_window) & (t < end_window)] = np.nan
@@ -108,7 +133,7 @@ class GapWindow:
                     f"{gap_ranges[i]} and {gap_ranges[i + 1]}"
                 )
 
-    def chunk_timeseries(
+    def _chunk_timeseries(
             self,
             ht: TimeSeries,
             alpha: float = 0,
@@ -127,7 +152,7 @@ class GapWindow:
             chunks.append(ts)
         return chunks
 
-    def gap_timeseries_chunk_transform_wdm_n_stitch(
+    def __gap_timeseries_chunk_transform_wdm_n_stitch(
             self,
             ht: TimeSeries,
             Nf: int,
@@ -137,7 +162,7 @@ class GapWindow:
         # Split into chunks and apply wavelet transform each chunk
         chunked_wavelets = [
             self.apply_nan_gap_to_wavelet(c.to_wavelet(Nf=Nf))
-            for c in self.chunk_timeseries(ht, alpha, fmin)
+            for c in self._chunk_timeseries(ht, alpha, fmin)
         ]
 
         # Setting up the final wavelet data array
@@ -164,10 +189,24 @@ class GapWindow:
         return Wavelet(stitched_data[:, tmask], time_bins[tmask], freq_bins)
 
 
-    def gap_timeseries_with_0s_n_transform(self, ht: TimeSeries, Nf: int, alpha: float = 0.0, fmin: float = 0):
+    def __gap_timeseries_with_0s_n_transform(self, ht: TimeSeries, Nf: int, alpha: float = 0.0, fmin: float = 0)->Wavelet:
         if fmin != 0:
             ht.highpass_filter(fmin, alpha)
         # convert gapped timepoints to 0s
         ht.data[self.gap_bools] = 0
         # Apply wavelet transform
-        return ht.to_wavelet(Nf=Nf)
+        w =  ht.to_wavelet(Nf=Nf)
+        # ensure regions in the gap are set to nan
+        w = self.apply_nan_gap_to_wavelet(w)
+        return w
+
+
+    def gap_n_transform_timeseries(self, ht: TimeSeries, Nf: int, alpha: float = 0.0, fmin: float = 0)->Wavelet:
+        if self.type == GapType.STITCH:
+            return self.__gap_timeseries_chunk_transform_wdm_n_stitch(ht, Nf, alpha, fmin)
+        elif self.type == GapType.RECTANGULAR_WINDOW:
+            return self.__gap_timeseries_with_0s_n_transform(ht, Nf, alpha, fmin)
+        else:
+            raise ValueError(f"GapType {self.type} not recognized")
+
+

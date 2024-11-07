@@ -8,7 +8,7 @@ from pywavelet.transforms.types import Wavelet, TimeSeries, FrequencySeries
 
 from .signal_utils import waveform_generator
 from .noise_curves import CornishPowerSpectralDensity, generate_stationary_noise
-from .gap_window import GapWindow
+from .gap_window import GapWindow, GapType
 
 from .constants import F_TRUE, A_TRUE, LN_F_TRUE, LN_FDOT_TRUE, NF, TMAX, GAP_RANGES, DT
 
@@ -54,6 +54,7 @@ class AnalysisData:
             ln_f_true: float = LN_F_TRUE,
             ln_fdot_true: float = LN_FDOT_TRUE,
             gap_ranges: List[Tuple[float, float]] = GAP_RANGES,
+            gap_type: GapType = GapType.STITCH,
             Nf: int = NF,
             tmax: float = TMAX,
             dt:float = DT,
@@ -120,10 +121,10 @@ class AnalysisData:
         # Gap data
         if gap_ranges is not None:
             print("------GAPPING------")
-            gaps = GapWindow(data.time, gap_ranges, tmax=tmax)
+            gaps = GapWindow(data.time, gap_ranges, tmax=tmax, type=gap_type)
             print(f"Using Gap: {gaps}")
-            data_wavelet = gaps.gap_timeseries_chunk_transform_wdm_n_stitch(data, Nf, alpha, highpass_fmin)
-            hw = gaps.gap_timeseries_chunk_transform_wdm_n_stitch(ht, Nf, alpha, highpass_fmin)
+            data_wavelet = gaps.gap_n_transform_timeseries(data, Nf, alpha, highpass_fmin)
+            hw = gaps.gap_n_transform_timeseries(ht, Nf, alpha, highpass_fmin)
             psd_wavelet = gaps.apply_nan_gap_to_wavelet(psd_wavelet)
         else:
             print("------NO GAPS------")
@@ -140,6 +141,9 @@ class AnalysisData:
         print(f"Optimal gapped WDM-SNR: {optimal_gapped_wdm_snr:.2f}")
         print(f"Matched-filter gapped WDM-SNR: {matched_filter_gapped_wdm_snr:.2f}")
         assert matched_filter_gapped_wdm_snr != 0, "SNR is 0... Something went wrong!"
+        # if not np.isfinite(matched_filter_gapped_wdm_snr):
+        #     raise ValueError("SNR is non-finite... Something went wrong!")
+
 
         snrs = dict(
             optimal_freq=optimal_snr,
@@ -177,6 +181,8 @@ class AnalysisData:
         # SNR info
         ax[0].axis("off")
         snr_text = "\n".join([f"{k}: {v:.2f}" for k, v in self.snrs.items()])
+        if self.gaps:
+            snr_text = f"\nGap: {self.gaps}\n" + snr_text
         ax[0].text(0.1, 0.5, snr_text, fontsize=8, verticalalignment="center")
 
         # timeseries + frequency series
@@ -185,8 +191,8 @@ class AnalysisData:
         ax[1].set_xlim(left=self.highpass_fmin, right=hf.freq[-1])
         ax[1].tick_params(axis="x", direction="in", labelbottom=False,top=True, labeltop=True)
         self.ht.plot(ax=ax[2], color="C0", label="Signal", alpha=0.9, lw=0.1)
-        if self.gaps is not None:
-            chunks = self.gaps.chunk_timeseries(self.ht, alpha=self.alpha, fmin=self.highpass_fmin)
+        if self.gaps is not None and self.gaps.type == GapType.STITCH:
+            chunks = self.gaps._chunk_timeseries(self.ht, alpha=self.alpha, fmin=self.highpass_fmin)
             chunksf = [c.to_frequencyseries() for c in chunks]
             for i in range(len(chunks)):
                 chunks[i].plot(ax=ax[2], color=f"C{i + 1}", label=f"Chunk {i}", alpha=0.5)
@@ -212,7 +218,7 @@ class AnalysisData:
         f, fdot = np.exp(ln_f), np.exp(ln_fdot)
         ht = waveform_generator(a, f, fdot, self.time, self.tmax, self.alpha)
         if self.gaps is not None:
-            hwavelet = self.gaps.gap_timeseries_chunk_transform_wdm_n_stitch(
+            hwavelet = self.gaps.gap_n_transform_timeseries(
                 ht, self.Nf, self.alpha, self.highpass_fmin
             )
         else:

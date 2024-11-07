@@ -1,20 +1,21 @@
 from gap_study_utils.analysis_data import AnalysisData, F_TRUE
 from gap_study_utils.random import seed
+from gap_study_utils.gap_window import GapType
+import pytest
+import os
 
 
-def test_analysis_data(plot_dir):
+# parameterize gap_type and noise
+@pytest.mark.parametrize("gap_type", GapType.all_types())
+@pytest.mark.parametrize("noise", [True, False])
+def test_analysis_data(plot_dir, gap_type, noise):
     seed(0)
-    d = AnalysisData.generate_data(
-        noise=True,
-        plotfn=f"{plot_dir}/noisy_analysis_data.png",
-        alpha=0.1,
-        dt=10,
-        # highpass_fmin=F_TRUE/2,
-    )
-    d = AnalysisData.generate_data(
-        noise=False,
-        plotfn=f"{plot_dir}/analysis_data.png",
-        alpha=0.1,
-        dt=10,
-        # highpass_fmin=F_TRUE/2,
+    dt = 10
+    outdir = f"{plot_dir}/analysis_data"
+    os.makedirs(outdir, exist_ok=True)
+    AnalysisData.generate_data(
+        noise=noise,
+        plotfn=f"{outdir}/{gap_type}_noise[{noise}].png",
+        dt=dt,
+        gap_type=gap_type,
     )

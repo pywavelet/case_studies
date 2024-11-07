@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 
-from gap_study_utils.gap_window import GapWindow, TimeSeries
+from gap_study_utils.gap_window import GapWindow, TimeSeries, GapType
 import numpy as np
 
 
@@ -37,28 +37,28 @@ def test_gap_window_wavelet(plot_dir):
     gap_ranges = [(0.1, 0.2), (0.3, 0.4)]
     t = np.linspace(0, 1, 4096)
     ht = TimeSeries(np.sin(2 * np.pi * 200 * t), t)
-    gap_window = GapWindow(t, gap_ranges, 1)
-    ts = gap_window.chunk_timeseries(ht, alpha=0.1)
+    gap_window = GapWindow(t, gap_ranges, 1, type=GapType.STITCH)
+    gap_window2 = GapWindow(t, gap_ranges, 1, type=GapType.RECTANGULAR_WINDOW)
+
+    ts = gap_window._chunk_timeseries(ht)
     chunked_wavelets = [gap_window.apply_nan_gap_to_wavelet(ts[i].to_wavelet(Nf=Nf)) for i in range(len(ts))]
-    fig, axes = plt.subplots(len(chunked_wavelets) + 1, 1, figsize=(15, 5), sharex=True)
+    fig, axes = plt.subplots(len(chunked_wavelets) + 3, 1, figsize=(15, 10), sharex=True)
     for i in range(len(chunked_wavelets)):
-        chunked_wavelets[i].plot(ax=axes[i], show_colorbar=False)
+        chunked_wavelets[i].plot(ax=axes[i], show_colorbar=False, label=f"Chunk {i}\n")
     axes[0].set_xlim(0, gap_window.tmax)
-    w = gap_window.gap_timeseries_chunk_transform_wdm_n_stitch(ht, Nf=Nf, alpha=0.1)
-    w.plot(ax=axes[-1], show_colorbar=False)
+    w = gap_window.gap_n_transform_timeseries(ht, Nf=Nf)
+    w.plot(ax=axes[-3], show_colorbar=False, label="Stitch-method\n")
+    w2 = gap_window2.gap_n_transform_timeseries(ht, Nf=Nf)
+    w2.plot(ax=axes[-2], show_colorbar=False, label="Rectangular-method\n")
+    wdiff = w - w2
+    wdiff.plot(ax=axes[-1], show_colorbar=False, label="Difference\n")
 
     for a in axes:
         gap_window.plot(ax=a)
-
+    plt.subplots_adjust(hspace=0)
     fig.savefig(f"{plot_dir}/gap_window_wavelet.png")
 
-def test_quentin_gap_method(plot_dir):
-    gap_ranges = [(0.1, 0.2), (0.3, 0.4)]
-    t = np.linspace(0, 1, 4096)
-    ht = TimeSeries(np.sin(2 * np.pi * 200 * t), t)
-    gap_window = GapWindow(t, gap_ranges, 1)
-    w = gap_window.gap_timeseries_with_0s_n_transform(ht, Nf=8)
-    fig, ax = plt.subplots(1, 1)
-    w.plot(ax=ax)
-    gap_window.plot(ax=ax)
-    fig.savefig(f"{plot_dir}/quentin_gap_method.png")
+
+
+def test_repr():
+    assert str(GapType.STITCH) == "STITCH"
