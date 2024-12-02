@@ -47,7 +47,9 @@ def __plot_timeseries(timeseries, fname):
 
 def __plot(hdata, htemplate, lnl,gap, fname):
     # Plot comparison
-    diff = hdata - htemplate
+    # Compute wavelet object of difference between data and template
+    diff = Wavelet(hdata.data - htemplate.data,
+                    htemplate.time, htemplate.freq)
     fig, axes = plt.subplots(3, 1, figsize=(10, 10), sharex=True)
     hdata.plot(ax=axes[0],label="Data")
     htemplate.plot(ax=axes[1], label=f"Template (Lnl = {lnl:.2e})")
