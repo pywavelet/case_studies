@@ -25,6 +25,7 @@ classifiers = [
 dependencies = [
     "numpy",
     "arviz",
+    "eryn",
     "bilby",
     "gif",
     "numba",

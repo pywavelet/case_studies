@@ -2,7 +2,6 @@ import gif
 import matplotlib.pyplot as plt
 import arviz as az
 from gap_study_utils.constants import TRUES
-from gap_study_utils.bayesian_functions import gap_hwavelet_generator
 from gap_study_utils.analysis_data import AnalysisData
 from tqdm.auto import trange
 import corner
@@ -42,23 +41,26 @@ def plot_mcmc_summary(idata, analysis_data:AnalysisData, i=None, fname=None):
     i = i or len(idata.sample_stats.draw)-1
     ith_samp = idata.posterior.isel(draw=i).median(dim="chain")
     ith_samp = {param: float(ith_samp[param].values) for param in ith_samp.data_vars}
-    htemplate = gap_hwavelet_generator(
-        **ith_samp,
-        time=analysis_data.time,
-        gap=analysis_data.gap,
-        tmax=analysis_data.tmax,
-        Nf=analysis_data.Nf,
-        alpha=analysis_data.alpha,
-        filter=analysis_data.filter,
-        fmin=analysis_data.fmin
-    )
+    htemplate = analysis_data.htemplate(**ith_samp)
 
     fig, axes = plt.subplots(4, 2, figsize=(10, 10))
     fig.suptitle(f"Iteration {i}")
     plot_trace(idata, axes, i, max_iter)
-    analysis_data.wavelet_data.plot(ax=axes[3, 0], show_colorbar=False)
-    htemplate.plot(ax=axes[3, 1], show_colorbar=False)
-    htemplate.plot_trend(ax=axes[3, 1], color='black')
+    analysis_data.wavelet_data.plot(
+        ax=axes[3, 0],
+        show_colorbar=False,
+        label="Whiten Data\n",
+        whiten_by=analysis_data.psd.data,
+        absolute=True,
+        zscale="log"
+    )
+    htemplate.plot(
+        ax=axes[3, 1],
+        show_colorbar=False,
+        label="ith-sample Signal\n",
+        absolute=True,
+        zscale="log"
+    )
     if fname:
         plt.tight_layout()
         plt.savefig(fname)

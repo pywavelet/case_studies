@@ -10,9 +10,8 @@ from pywavelet.transforms.types import FrequencySeries, TimeSeries
 from pywavelet.transforms import (from_freq_to_wavelet, from_time_to_wavelet, from_wavelet_to_time)
 from pywavelet.transforms.types.plotting import plot_wavelet_grid
 
-from gap_study_utils.signal_utils import zero_pad, inner_prod, waveform
+from gap_study_utils.signal_utils import waveform
 from gap_study_utils.noise_curves import noise_PSD_AE
-from gap_study_utils.wavelet_data_utils import generate_wavelet_with_gap, bandpass_timeseries
 
 # Constants
 np.random.seed(1234)

@@ -5,6 +5,7 @@ ONE_DAY = 24 * ONE_HOUR
 A_TRUE = 1e-20
 F_TRUE = 3e-3
 FDOT_TRUE = 1e-8
+DT = np.floor(0.4 / (2 * F_TRUE))
 
 LN_F_TRUE = np.log(F_TRUE)
 LN_FDOT_TRUE = np.log(FDOT_TRUE)
@@ -12,9 +13,13 @@ LN_FDOT_TRUE = np.log(FDOT_TRUE)
 TRUES = [A_TRUE, LN_F_TRUE, LN_FDOT_TRUE]
 
 NF = 64
-TMAX = 4 * ONE_DAY
-START_GAP = TMAX  * 0.4
-END_GAP = START_GAP + 6 * ONE_HOUR
+TMAX = 655_360
+
+GAP_RANGES = [
+    [0.3*TMAX, 0.35*TMAX],
+    [0.5*TMAX, 0.6*TMAX],
+    [0.8*TMAX, 0.87*TMAX],
+]
 
 A_RANGE = [A_TRUE-1e-21, A_TRUE + 1e-21]
 F_RANGE = [F_TRUE - 6e-7, F_TRUE + 6e-7]

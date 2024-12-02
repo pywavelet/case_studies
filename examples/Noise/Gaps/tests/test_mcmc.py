@@ -1,19 +1,17 @@
 from gap_study_utils.mcmc_runner import run_mcmc
-
+import numpy as np
+from gap_study_utils.constants import DT
 
 
 def test_mcmc(plot_dir):
+
+
     filtering_kwgs = dict(
         noise_realisation=True,
-        fmin=0.0001,
         alpha=0.1,
-        filter=True,
-    )
-    filtering_kwgs = dict(
-        noise_realisation=False,
-        # fmin=0.0001,
-        # alpha=0.1,
-        filter=False,
+        highpass_fmin=0.0001,
+        dt=DT,
+        tmax=540672,
     )
 
     run_mcmc(
@@ -23,7 +21,7 @@ def test_mcmc(plot_dir):
     )
     run_mcmc(
         n_iter=250,
-        gap_range=None,
+        gap_ranges=None,
         outdir=f"{plot_dir}/mcmc",
         **filtering_kwgs
     )
