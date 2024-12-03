@@ -27,3 +27,25 @@ def test_lnl(plot_dir):
     assert lnl == 0, "Lnl not 0 for true params!"
 
 
+<<<<<<< HEAD
+
+def __plot(hdata, htemplate, lnl,gap, fname):
+    # Plot comparison
+    # Compute wavelet object of difference between data and template
+    diff = Wavelet(hdata.data - htemplate.data,
+                    htemplate.time, htemplate.freq)
+    fig, axes = plt.subplots(3, 1, figsize=(10, 10), sharex=True)
+    hdata.plot(ax=axes[0],label="Data")
+    htemplate.plot(ax=axes[1], label=f"Template (Lnl = {lnl:.2e})")
+    diff.plot(ax=axes[2], label="Data-Template")
+    axes[0].set_xlim(0, gap.tmax * 1.1)
+    for a in axes:
+        a.axvline(gap.gap_start, color="red", linestyle="--", label="Gap")
+        a.axvline(gap.gap_end, color="red", linestyle="--")
+        a.axvline(gap.tmax, color="green", linestyle="--", label="Tmax")
+        a.set_ylim(0.002, 0.007)
+    axes[0].legend(loc="lower right")
+    plt.subplots_adjust(hspace=0)
+    fig.savefig(fname)
+=======
+>>>>>>> 5fd7280488773321146b9f0caafd348945459c36

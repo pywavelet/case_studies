@@ -33,7 +33,6 @@ def main(
 
         noise_wavelet_flat = noise_wavelet.data.flatten()
         noise_wavelet_with_gap_flat = noise_wavelet_with_gap.data.flatten()
-        noise_wavelet_with_gap_flat = np.nan_to_num(noise_wavelet_with_gap_flat, nan=0)
         
 
         flattened_vec_no_gap.append(noise_wavelet_flat)
