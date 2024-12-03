@@ -1,5 +1,6 @@
-import matplotlib.pyplot as plt
 import os
+
+import matplotlib.pyplot as plt
 import numpy as np
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "Data")
@@ -7,9 +8,15 @@ DATA_DIR = os.path.join(os.path.dirname(__file__), "Data")
 
 def main():
     print("Now loading in analytical cov matrix")
-    Cov_Matrix_analytical_gap_TDI1 = np.load(f"{DATA_DIR}/Cov_Matrix_analytical_gap_TDI1.npy")
-    Cov_Matrix_analytical_gap_TDI2 = np.load(f"{DATA_DIR}/Cov_Matrix_analytical_gap_TDI2.npy")
-    Cov_Matrix_analytical_gap_Cornish = np.load(f"{DATA_DIR}/Cov_Matrix_analytical_gap_cornish.npy")
+    Cov_Matrix_analytical_gap_TDI1 = np.load(
+        f"{DATA_DIR}/Cov_Matrix_analytical_gap_TDI1.npy"
+    )
+    Cov_Matrix_analytical_gap_TDI2 = np.load(
+        f"{DATA_DIR}/Cov_Matrix_analytical_gap_TDI2.npy"
+    )
+    Cov_Matrix_analytical_gap_Cornish = np.load(
+        f"{DATA_DIR}/Cov_Matrix_analytical_gap_cornish.npy"
+    )
     print("Now loading in estimated covariance matrix")
     Cov_Matrix_estm_gap = np.load(f"{DATA_DIR}/Cov_Matrix_estm_gap.npy")
 
@@ -46,17 +53,24 @@ def main():
     N_time = 2 * (Cov_Matrix_analytical_gap_TDI1.shape[0] - 1)
 
     freq_bin = np.fft.rfftfreq(N_time, 66)
-    title_label = [r'TDI1', r'TDI2', 'Cornish']
+    title_label = [r"TDI1", r"TDI2", "Cornish"]
 
     fig, ax = plt.subplots(1, 3, figsize=(16, 8))
 
-    mat_TDI1 = ax[0].matshow(np.log10(np.abs(Cov_Matrix_analytical_gap_TDI1)), vmin=-47, vmax=-36)
-    mat_TDI2 = ax[1].matshow(np.log10(np.abs(Cov_Matrix_analytical_gap_TDI2)), vmin=-47, vmax=-36)
-    mat_cornish = ax[2].matshow(np.log10(np.abs(Cov_Matrix_analytical_gap_Cornish)), vmin=-47, vmax=-36)
+    mat_TDI1 = ax[0].matshow(
+        np.log10(np.abs(Cov_Matrix_analytical_gap_TDI1)), vmin=-47, vmax=-36
+    )
+    mat_TDI2 = ax[1].matshow(
+        np.log10(np.abs(Cov_Matrix_analytical_gap_TDI2)), vmin=-47, vmax=-36
+    )
+    mat_cornish = ax[2].matshow(
+        np.log10(np.abs(Cov_Matrix_analytical_gap_Cornish)), vmin=-47, vmax=-36
+    )
 
-    cbar = fig.colorbar(mat_cornish, ax=ax, location='top', anchor=(0, -16),
-                        shrink=1)
-    cbar.set_label(label=r'Power', fontsize=30)
+    cbar = fig.colorbar(
+        mat_cornish, ax=ax, location="top", anchor=(0, -16), shrink=1
+    )
+    cbar.set_label(label=r"Power", fontsize=30)
     cbar.ax.tick_params(labelsize=20)
 
     ticks = [0, 100, 200, 300, 400, 512]
@@ -65,14 +79,20 @@ def main():
     ax[1].yaxis.tick_right()
 
     for i in range(0, 3):
-        ax[i].set_xticks(ticks, np.round(freq_ticks, 3), fontsize=12, rotation=315)
-        ax[0].set_yticks(ticks, np.round(freq_ticks, 3), fontsize=12, rotation=45)
-        ax[1].set_yticks(ticks, np.round(freq_ticks, 3), fontsize=12, rotation=315)
-        ax[i].set_title('Frequency [Hz]', fontsize=20)
-        ax[0].set_ylabel('Frequency [Hz]', fontsize=20)
+        ax[i].set_xticks(
+            ticks, np.round(freq_ticks, 3), fontsize=12, rotation=315
+        )
+        ax[0].set_yticks(
+            ticks, np.round(freq_ticks, 3), fontsize=12, rotation=45
+        )
+        ax[1].set_yticks(
+            ticks, np.round(freq_ticks, 3), fontsize=12, rotation=315
+        )
+        ax[i].set_title("Frequency [Hz]", fontsize=20)
+        ax[0].set_ylabel("Frequency [Hz]", fontsize=20)
         ax[i].set_xlabel(title_label[i], fontsize=22)
     plt.tight_layout()
-    plt.savefig(f'{DATA_DIR}/Covariance_matrix_comparison.png')
+    plt.savefig(f"{DATA_DIR}/Covariance_matrix_comparison.png")
     print("Saved matrix comparison plot")
 
 

@@ -2,7 +2,8 @@
 Random number generator utilities.
 https://blog.scientific-python.org/numpy/numpy-rng/
 """
-from numpy.random import default_rng, SeedSequence
+
+from numpy.random import SeedSequence, default_rng
 
 
 def __getattr__(name):
@@ -26,4 +27,6 @@ def seed(seed):
 
 
 def generate_seeds(nseeds):
-    return SeedSequence(Generator.rng.integers(0, 2**63 - 1, size=4)).spawn(nseeds)
+    return SeedSequence(Generator.rng.integers(0, 2**63 - 1, size=4)).spawn(
+        nseeds
+    )

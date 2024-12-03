@@ -1,32 +1,37 @@
-import emcee
-from typing import List
-from bilby.core.prior import Uniform, TruncatedGaussian, Gaussian, PriorDict
-import time
-
-from multiprocessing import (get_context, cpu_count)
 import os
-import arviz as az
+import time
 import warnings
+from multiprocessing import cpu_count, get_context
+from typing import List
 
-from .plotting import plot_corner, make_mcmc_trace_gif, plot_mcmc_summary
-from .random import seed
-from .constants import *
+import arviz as az
+import emcee
+from bilby.core.prior import Gaussian, PriorDict, TruncatedGaussian, Uniform
+
 from .analysis_data import AnalysisData
+from .constants import *
 from .gap_window import GapType
+from .plotting import make_mcmc_trace_gif, plot_corner, plot_mcmc_summary
+from .random import seed
 from .signal_utils import waveform
 
+PRIOR = PriorDict(
+    dict(
+        a=Uniform(*A_RANGE),
+        ln_f=Uniform(*LN_F_RANGE),
+        ln_fdot=Uniform(*LN_FDOT_RANGE),
+    )
+)
 
-PRIOR = PriorDict(dict(
-    a=Uniform(*A_RANGE),
-    ln_f=Uniform(*LN_F_RANGE),
-    ln_fdot=Uniform(*LN_FDOT_RANGE)
-))
-
-CENTERED_PRIOR = PriorDict(dict(
-    a=TruncatedGaussian(mu=A_TRUE, sigma=A_SCALE * 0.1, minimum=1e-25, maximum=1e-15),
-    ln_f=Gaussian(mu=LN_F_TRUE, sigma=LN_F_SCALE * 0.1),
-    ln_fdot=Gaussian(mu=LN_FDOT_TRUE, sigma=LN_FDOT_SCALE * 0.1)
-))
+CENTERED_PRIOR = PriorDict(
+    dict(
+        a=TruncatedGaussian(
+            mu=A_TRUE, sigma=A_SCALE * 0.1, minimum=1e-25, maximum=1e-15
+        ),
+        ln_f=Gaussian(mu=LN_F_TRUE, sigma=LN_F_SCALE * 0.1),
+        ln_fdot=Gaussian(mu=LN_FDOT_TRUE, sigma=LN_FDOT_SCALE * 0.1),
+    )
+)
 
 
 def log_prior(theta):
@@ -43,7 +48,7 @@ def sample_prior(prior: PriorDict, n_samples=1) -> np.ndarray:
     return np.array(list(prior.sample(n_samples).values())).T
 
 
-def log_posterior(theta: List[float], analysis_data:AnalysisData) -> float:
+def log_posterior(theta: List[float], analysis_data: AnalysisData) -> float:
     _lp = log_prior(theta)
     if not np.isfinite(_lp):
         return -np.inf
@@ -53,18 +58,18 @@ def log_posterior(theta: List[float], analysis_data:AnalysisData) -> float:
 
 
 def run_mcmc(
-        true_params=[A_TRUE, LN_F_TRUE, LN_FDOT_TRUE],
-        gap_ranges=GAP_RANGES,
-        Nf=NF,
-        tmax=TMAX,
-        dt=DT,
-        alpha=0.0,
-        highpass_fmin=10 ** -4,
-        noise_realisation=False,
-        n_iter=2500,
-        nwalkers=32,
-        random_seed=None,
-        outdir="out_mcmc",
+    true_params=[A_TRUE, LN_F_TRUE, LN_FDOT_TRUE],
+    gap_ranges=GAP_RANGES,
+    Nf=NF,
+    tmax=TMAX,
+    dt=DT,
+    alpha=0.0,
+    highpass_fmin=10**-4,
+    noise_realisation=False,
+    n_iter=2500,
+    nwalkers=32,
+    random_seed=None,
+    outdir="out_mcmc",
 ):
     """
     Run MCMC on the data generated with the given parameters.
@@ -89,15 +94,14 @@ def run_mcmc(
 
     analysis_data = AnalysisData(
         data_kwargs=dict(
-            dt=dt, noise=noise_realisation, tmax=tmax,
+            dt=dt,
+            noise=noise_realisation,
+            tmax=tmax,
             highpass_fmin=highpass_fmin,
             alpha=alpha,
-            Nf=Nf
+            Nf=Nf,
         ),
-        gap_kwargs=dict(
-            type=GapType.STITCH,
-            gap_ranges=gap_ranges
-        ),
+        gap_kwargs=dict(type=GapType.STITCH, gap_ranges=gap_ranges),
         waveform_generator=waveform,
         waveform_parameters=true_params,
         plotfn=f"{outdir}/data.png",
@@ -110,13 +114,14 @@ def run_mcmc(
     llike_val = log_posterior(true_params, analysis_data)
     print("Value of likelihood at true values is", llike_val)
     if noise_realisation is False and not np.isclose(llike_val, 0.0):
-        warnings.warn(f"LnL(True values) = {llike_val:.3e} != 0.0... SUSPICIOUS!")
+        warnings.warn(
+            f"LnL(True values) = {llike_val:.3e} != 0.0... SUSPICIOUS!"
+        )
 
     N_cpus = cpu_count()
     pool = get_context("fork").Pool(N_cpus)
     sampler = emcee.EnsembleSampler(
-        nwalkers, ndim, log_posterior, pool=pool,
-        args = (analysis_data,)
+        nwalkers, ndim, log_posterior, pool=pool, args=(analysis_data,)
     )
     sampler.run_mcmc(x0, n_iter, progress=True)
     pool.close()
@@ -137,14 +142,14 @@ def run_mcmc(
     print(f"Saved chain to {idata_fname}")
 
     print("Making plots")
-    plot_corner(idata_fname, trues=true_params, fname=f'{outdir}/corner.png')
+    plot_corner(idata_fname, trues=true_params, fname=f"{outdir}/corner.png")
     plot_mcmc_summary(
-        idata_fname, analysis_data,
-        fname=f'{outdir}/summary.png'
+        idata_fname, analysis_data, fname=f"{outdir}/summary.png"
     )
     print(f"Runtime: {_fmt_rutime(float(idata.sample_stats.runtime))}")
 
-def _fmt_rutime(t:float):
+
+def _fmt_rutime(t: float):
     hours, remainder = divmod(t, 3600)
     minutes, seconds = divmod(remainder, 60)
     fmt = ""

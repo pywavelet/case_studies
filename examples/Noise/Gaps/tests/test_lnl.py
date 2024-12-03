@@ -1,9 +1,9 @@
+import matplotlib.pyplot as plt
+import numpy as np
+from pywavelet.transforms.types import Wavelet
 
 from gap_study_utils.analysis_data import AnalysisData
 from gap_study_utils.constants import TRUES
-from pywavelet.transforms.types import Wavelet
-import matplotlib.pyplot as plt
-import numpy as np
 
 
 def test_lnl(plot_dir):
@@ -23,14 +23,12 @@ def test_lnl(plot_dir):
     assert lnl == 0, "Lnl not 0 for true params!"
 
 
-
-def __plot(hdata, htemplate, lnl,gap, fname):
+def __plot(hdata, htemplate, lnl, gap, fname):
     # Plot comparison
     # Compute wavelet object of difference between data and template
-    diff = Wavelet(hdata.data - htemplate.data,
-                    htemplate.time, htemplate.freq)
+    diff = Wavelet(hdata.data - htemplate.data, htemplate.time, htemplate.freq)
     fig, axes = plt.subplots(3, 1, figsize=(10, 10), sharex=True)
-    hdata.plot(ax=axes[0],label="Data")
+    hdata.plot(ax=axes[0], label="Data")
     htemplate.plot(ax=axes[1], label=f"Template (Lnl = {lnl:.2e})")
     diff.plot(ax=axes[2], label="Data-Template")
     axes[0].set_xlim(0, gap.tmax * 1.1)

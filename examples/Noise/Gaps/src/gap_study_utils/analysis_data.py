@@ -1,13 +1,21 @@
-import matplotlib.pyplot as plt
-from typing import List, Dict, Callable, Optional
-import numpy as np
+from typing import Callable, Dict, List, Optional
 
+import matplotlib.pyplot as plt
+import numpy as np
 from pywavelet.transforms.forward.wavelet_bins import compute_bins
-from pywavelet.utils import evolutionary_psd_from_stationary_psd, compute_snr, compute_likelihood
-from pywavelet.transforms.types import Wavelet, TimeSeries, FrequencySeries
-from .noise_curves import CornishPowerSpectralDensity, generate_stationary_noise
-from .gap_window import GapWindow, GapType
-from .constants import NF, TMAX, DT, GAP_RANGES, TRUES
+from pywavelet.transforms.types import FrequencySeries, TimeSeries, Wavelet
+from pywavelet.utils import (
+    compute_likelihood,
+    compute_snr,
+    evolutionary_psd_from_stationary_psd,
+)
+
+from .constants import DT, GAP_RANGES, NF, TMAX, TRUES
+from .gap_window import GapType, GapWindow
+from .noise_curves import (
+    CornishPowerSpectralDensity,
+    generate_stationary_noise,
+)
 from .signal_utils import waveform
 
 
@@ -34,19 +42,16 @@ class AnalysisData:
         waveform_generator = waveform
         waveform_parameters = TRUES
         return cls(
-            data_kwargs,
-            gap_kwargs,
-            waveform_generator,
-            waveform_parameters
+            data_kwargs, gap_kwargs, waveform_generator, waveform_parameters
         )
 
     def __init__(
-            self,
-            data_kwargs: Optional[Dict] = None,
-            gap_kwargs: Optional[Dict] = None,
-            waveform_generator: Optional[Callable[..., TimeSeries]] = None,
-            waveform_parameters: Optional[List[float]] = None,
-            plotfn: Optional[str] = None
+        self,
+        data_kwargs: Optional[Dict] = None,
+        gap_kwargs: Optional[Dict] = None,
+        waveform_generator: Optional[Callable[..., TimeSeries]] = None,
+        waveform_parameters: Optional[List[float]] = None,
+        plotfn: Optional[str] = None,
     ):
         self.data_kwargs = data_kwargs or {}
         self.gap_kwargs = gap_kwargs or {}
@@ -83,9 +88,7 @@ class AnalysisData:
         gap_type = self.gap_kwargs.get("type", GapType.STITCH)
         if gap_ranges:
             self.gaps = GapWindow(
-                self.time, tmax=self.tmax,
-                gap_ranges=gap_ranges,
-                type=gap_type
+                self.time, tmax=self.tmax, gap_ranges=gap_ranges, type=gap_type
             )
         else:
             self.gaps = None
@@ -101,9 +104,11 @@ class AnalysisData:
         if n != n_pwr_2:
             suggestion = dict(dt=self.dt, tmax=n_pwr_2 * self.dt)
             current = dict(dt=self.dt, tmax=self.tmax)
-            raise ValueError(f"ND must be a power of 2."
-                             f"Current settings:\n\t {current}\n"
-                             f"Suggested settings:\n\t {suggestion}")
+            raise ValueError(
+                f"ND must be a power of 2."
+                f"Current settings:\n\t {current}\n"
+                f"Suggested settings:\n\t {suggestion}"
+            )
         self.__ND = n
 
     @property
@@ -119,7 +124,8 @@ class AnalysisData:
         if not hasattr(self, "__psd_wavelet"):
             psd = self.psd_freqseries
             self.__psd_wavelet = evolutionary_psd_from_stationary_psd(
-                psd.data, psd.freq, self.f_grid, self.t_grid, self.dt)
+                psd.data, psd.freq, self.f_grid, self.t_grid, self.dt
+            )
         return self.__psd_wavelet
 
     @property
@@ -136,18 +142,24 @@ class AnalysisData:
     def ht(self) -> TimeSeries:
         """Generate the time series from the waveform generator if provided."""
         if not hasattr(self, "__ht"):
-            self.__ht = self.waveform_generator(*self.waveform_parameters,
-                                                self.time) if self.waveform_generator else TimeSeries._EMPTY(self.ND,
-                                                                                                             self.dt)
+            self.__ht = (
+                self.waveform_generator(*self.waveform_parameters, self.time)
+                if self.waveform_generator
+                else TimeSeries._EMPTY(self.ND, self.dt)
+            )
         return self.__ht
 
     @property
     def noise_timeseries(self) -> TimeSeries:
         """Generate stationary noise time series if noise is enabled."""
         if not hasattr(self, "__noise_timeseries"):
-            self.__noise_timeseries = generate_stationary_noise(ND=self.ND, dt=self.dt,
-                                                                psd=self.psd_freqseries) if self.noise else TimeSeries._EMPTY(
-                self.ND, self.dt)
+            self.__noise_timeseries = (
+                generate_stationary_noise(
+                    ND=self.ND, dt=self.dt, psd=self.psd_freqseries
+                )
+                if self.noise
+                else TimeSeries._EMPTY(self.ND, self.dt)
+            )
         return self.__noise_timeseries
 
     @property
@@ -168,7 +180,9 @@ class AnalysisData:
     def data_frequencyseries(self) -> FrequencySeries:
         """Convert data time series to frequency series."""
         if not hasattr(self, "__data_frequencyseries"):
-            self.__data_frequencyseries = self.data_timeseries.to_frequencyseries()
+            self.__data_frequencyseries = (
+                self.data_timeseries.to_frequencyseries()
+            )
         return self.__data_frequencyseries
 
     @property
@@ -182,8 +196,9 @@ class AnalysisData:
     def hwavelet_gapped(self) -> Wavelet:
         """Apply gap windowing to the wavelet-transformed time series."""
         if not hasattr(self, "__hwavelet_gapped"):
-            self.__hwavelet_gapped = self.gaps.gap_n_transform_timeseries(self.ht, self.Nf, self.alpha,
-                                                                          self.highpass_fmin)
+            self.__hwavelet_gapped = self.gaps.gap_n_transform_timeseries(
+                self.ht, self.Nf, self.alpha, self.highpass_fmin
+            )
         return self.__hwavelet_gapped
 
     @property
@@ -192,11 +207,16 @@ class AnalysisData:
         if not hasattr(self, "__data_wavelet"):
             data_timeseries = self.data_timeseries
             if self.highpass_fmin > 0:
-                data_timeseries = data_timeseries.highpass_filter(fmin=self.highpass_fmin,
-                                                                  tukey_window_alpha=self.alpha)
-            self.__data_wavelet = data_timeseries.to_wavelet(
-                Nf=self.Nf) if not self.gaps else self.gaps.gap_n_transform_timeseries(data_timeseries, self.Nf,
-                                                                                       self.alpha, self.highpass_fmin)
+                data_timeseries = data_timeseries.highpass_filter(
+                    fmin=self.highpass_fmin, tukey_window_alpha=self.alpha
+                )
+            self.__data_wavelet = (
+                data_timeseries.to_wavelet(Nf=self.Nf)
+                if not self.gaps
+                else self.gaps.gap_n_transform_timeseries(
+                    data_timeseries, self.Nf, self.alpha, self.highpass_fmin
+                )
+            )
         return self.__data_wavelet
 
     @property
@@ -208,7 +228,8 @@ class AnalysisData:
                 gaps=self.gaps,
                 windowed=self.highpass_fmin > 0,
                 noise=self.noise,
-                **self.snr_dict)
+                **self.snr_dict,
+            )
         return self.__summary_dict
 
     @property
@@ -227,17 +248,33 @@ class AnalysisData:
         """Helper to calculate and return a dictionary of SNR values."""
         snrs = {
             "optimal_snr": self.hf.optimal_snr(self.psd_freqseries),
-            "matched_filter_snr": self.hf.matched_filter_snr(self.data_frequencyseries, self.psd_freqseries),
-            "optimal_wavelet_snr": compute_snr(self.hwavelet, self.hwavelet, self.psd_wavelet),
-            "matched_filter_wavelet_snr": compute_snr(self.data_wavelet, self.hwavelet, self.psd_wavelet),
-            "optimal_data_wavelet_snr": compute_snr(self.hwavelet, self.hwavelet, self.psd),
-            "matched_filter_data_wavelet_snr": compute_snr(self.data_wavelet, self.hwavelet, self.psd),
+            "matched_filter_snr": self.hf.matched_filter_snr(
+                self.data_frequencyseries, self.psd_freqseries
+            ),
+            "optimal_wavelet_snr": compute_snr(
+                self.hwavelet, self.hwavelet, self.psd_wavelet
+            ),
+            "matched_filter_wavelet_snr": compute_snr(
+                self.data_wavelet, self.hwavelet, self.psd_wavelet
+            ),
+            "optimal_data_wavelet_snr": compute_snr(
+                self.hwavelet, self.hwavelet, self.psd
+            ),
+            "matched_filter_data_wavelet_snr": compute_snr(
+                self.data_wavelet, self.hwavelet, self.psd
+            ),
         }
         if self.gaps:
-            snrs.update({
-                "optimal_data_wavelet_snr": compute_snr(self.hwavelet_gapped, self.hwavelet_gapped, self.psd),
-                "matched_filter_data_wavelet_snr": compute_snr(self.data_wavelet, self.hwavelet_gapped, self.psd),
-            })
+            snrs.update(
+                {
+                    "optimal_data_wavelet_snr": compute_snr(
+                        self.hwavelet_gapped, self.hwavelet_gapped, self.psd
+                    ),
+                    "matched_filter_data_wavelet_snr": compute_snr(
+                        self.data_wavelet, self.hwavelet_gapped, self.psd
+                    ),
+                }
+            )
 
         for k, v in snrs.items():
             if np.isfinite(v):
@@ -248,31 +285,42 @@ class AnalysisData:
         """Plot data visualizations including SNR information, time series, wavelet, and PSDs."""
         fig, ax = plt.subplots(6, 1, figsize=(5, 8))
         ax[0].axis("off")
-        ax[0].text(0.1, 0.5, self.summary, fontsize=8, verticalalignment="center")
+        ax[0].text(
+            0.1, 0.5, self.summary, fontsize=8, verticalalignment="center"
+        )
 
         self.hf.plot_periodogram(ax=ax[1], color="C0", alpha=1, lw=1)
         self.psd_freqseries.plot(ax=ax[1], color="k", alpha=1, lw=1)
         ax[1].set_xlim(left=self.highpass_fmin, right=self.freq[-1])
-        ax[1].tick_params(axis="x", direction="in", labelbottom=False, top=True, labeltop=True)
+        ax[1].tick_params(
+            axis="x",
+            direction="in",
+            labelbottom=False,
+            top=True,
+            labeltop=True,
+        )
 
         self.ht.plot(ax=ax[2])
-        kwgs = dict(show_colorbar=False,absolute=True, zscale="log" )
-        kwgs2= dict(whiten_by = self.psd.data, **kwgs)
+        kwgs = dict(show_colorbar=False, absolute=True, zscale="log")
+        kwgs2 = dict(whiten_by=self.psd.data, **kwgs)
         self.data_wavelet.plot(ax=ax[3], label="Data\n", **kwgs2)
         self.hwavelet.plot(ax=ax[4], label="Model\n", **kwgs2)
         self.psd.plot(ax=ax[5], label="PSD\n", **kwgs)
         if self.gaps:
             if self.gaps.type == GapType.STITCH:
-                chunks = self.gaps._chunk_timeseries(self.ht, alpha=self.alpha, fmin=self.highpass_fmin)
+                chunks = self.gaps._chunk_timeseries(
+                    self.ht, alpha=self.alpha, fmin=self.highpass_fmin
+                )
                 chunksf = [c.to_frequencyseries() for c in chunks]
                 for i in range(len(chunks)):
-                    chunksf[i].plot_periodogram(ax=ax[1], color=f"C{i + 1}", alpha=0.5)
+                    chunksf[i].plot_periodogram(
+                        ax=ax[1], color=f"C{i + 1}", alpha=0.5
+                    )
                     chunks[i].plot(ax=ax[2], color=f"C{i + 1}", alpha=0.5)
             for a in ax[2:]:
                 self.gaps.plot(ax=a)
         plt.subplots_adjust(hspace=0)
         plt.savefig(plotfn, bbox_inches="tight")
-
 
     def htemplate(self, *args, **kwargs) -> Wavelet:
         ht = self.waveform_generator(*args, **kwargs, t=self.time)
@@ -288,7 +336,5 @@ class AnalysisData:
 
     def lnl(self, *args) -> float:
         return compute_likelihood(
-            self.data_wavelet,
-            self.htemplate(*args),
-            self.psd
+            self.data_wavelet, self.htemplate(*args), self.psd
         )

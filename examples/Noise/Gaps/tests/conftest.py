@@ -1,9 +1,9 @@
-import pytest
 import os
+
 import numpy as np
+import pytest
 
 from gap_study_utils.analysis_data import AnalysisData
-
 
 
 @pytest.fixture

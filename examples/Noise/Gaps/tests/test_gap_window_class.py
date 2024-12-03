@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
-
-from gap_study_utils.gap_window import GapWindow, TimeSeries, GapType
 import numpy as np
+
+from gap_study_utils.gap_window import GapType, GapWindow, TimeSeries
 
 
 def test_gap_window(plot_dir):
@@ -41,10 +41,17 @@ def test_gap_window_wavelet(plot_dir):
     gap_window2 = GapWindow(t, gap_ranges, 1, type=GapType.RECTANGULAR_WINDOW)
 
     ts = gap_window._chunk_timeseries(ht)
-    chunked_wavelets = [gap_window.apply_nan_gap_to_wavelet(ts[i].to_wavelet(Nf=Nf)) for i in range(len(ts))]
-    fig, axes = plt.subplots(len(chunked_wavelets) + 3, 1, figsize=(15, 10), sharex=True)
+    chunked_wavelets = [
+        gap_window.apply_nan_gap_to_wavelet(ts[i].to_wavelet(Nf=Nf))
+        for i in range(len(ts))
+    ]
+    fig, axes = plt.subplots(
+        len(chunked_wavelets) + 3, 1, figsize=(15, 10), sharex=True
+    )
     for i in range(len(chunked_wavelets)):
-        chunked_wavelets[i].plot(ax=axes[i], show_colorbar=False, label=f"Chunk {i}\n")
+        chunked_wavelets[i].plot(
+            ax=axes[i], show_colorbar=False, label=f"Chunk {i}\n"
+        )
     axes[0].set_xlim(0, gap_window.tmax)
     w = gap_window.gap_n_transform_timeseries(ht, Nf=Nf)
     w.plot(ax=axes[-3], show_colorbar=False, label="Stitch-method\n")
@@ -57,7 +64,6 @@ def test_gap_window_wavelet(plot_dir):
         gap_window.plot(ax=a)
     plt.subplots_adjust(hspace=0)
     fig.savefig(f"{plot_dir}/gap_window_wavelet.png")
-
 
 
 def test_repr():

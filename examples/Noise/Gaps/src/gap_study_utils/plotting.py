@@ -1,46 +1,53 @@
+import arviz as az
+import corner
 import gif
 import matplotlib.pyplot as plt
-import arviz as az
-from gap_study_utils.constants import TRUES
-from gap_study_utils.analysis_data import AnalysisData
-from tqdm.auto import trange
-import corner
 import numpy as np
+from tqdm.auto import trange
+
+from gap_study_utils.analysis_data import AnalysisData
+from gap_study_utils.constants import TRUES
 
 gif.options.matplotlib["dpi"] = 100
 
 
-
-
 def plot_trace(idata: az.InferenceData, axes, i=None, max_iter=None):
     if i is not None:
-        sliced_posterior = idata.posterior.isel(chain=slice(None), draw=slice(0, i))
+        sliced_posterior = idata.posterior.isel(
+            chain=slice(None), draw=slice(0, i)
+        )
         idata = az.InferenceData(posterior=sliced_posterior)
 
     az.plot_trace(idata, axes=axes)
     for row in range(3):
-        axes[row, 0].axvline(TRUES[row], c='red', linestyle='--', label='truth')
-        axes[row, 1].axhline(TRUES[row], c='red', linestyle='--', label='truth')
+        axes[row, 0].axvline(
+            TRUES[row], c="red", linestyle="--", label="truth"
+        )
+        axes[row, 1].axhline(
+            TRUES[row], c="red", linestyle="--", label="truth"
+        )
         if i is not None:
-            axes[row, 1].axvline(i, c='green', linestyle='--')
+            axes[row, 1].axvline(i, c="green", linestyle="--")
             axes[row, 1].set_xlim(0, max_iter)
-    axes[0, 0].set_xscale('log')
-    axes[0, 1].set_yscale('log')
+    axes[0, 0].set_xscale("log")
+    axes[0, 1].set_yscale("log")
 
 
 @gif.frame
-def _trace_mcmc_frame(idata, analysis_data:AnalysisData, i, max_iter=None):
+def _trace_mcmc_frame(idata, analysis_data: AnalysisData, i, max_iter=None):
     plot_mcmc_summary(idata, analysis_data, max_iter)
 
 
-def plot_mcmc_summary(idata, analysis_data:AnalysisData, i=None, fname=None):
+def plot_mcmc_summary(idata, analysis_data: AnalysisData, i=None, fname=None):
     if isinstance(idata, str):
         idata = az.from_netcdf(idata)
 
     max_iter = len(idata.sample_stats.draw)
-    i = i or len(idata.sample_stats.draw)-1
+    i = i or len(idata.sample_stats.draw) - 1
     ith_samp = idata.posterior.isel(draw=i).median(dim="chain")
-    ith_samp = {param: float(ith_samp[param].values) for param in ith_samp.data_vars}
+    ith_samp = {
+        param: float(ith_samp[param].values) for param in ith_samp.data_vars
+    }
     htemplate = analysis_data.htemplate(**ith_samp)
 
     fig, axes = plt.subplots(4, 2, figsize=(10, 10))
@@ -52,22 +59,23 @@ def plot_mcmc_summary(idata, analysis_data:AnalysisData, i=None, fname=None):
         label="Whiten Data\n",
         whiten_by=analysis_data.psd.data,
         absolute=True,
-        zscale="log"
+        zscale="log",
     )
     htemplate.plot(
         ax=axes[3, 1],
         show_colorbar=False,
         label="ith-sample Signal\n",
         absolute=True,
-        zscale="log"
+        zscale="log",
     )
     if fname:
         plt.tight_layout()
         plt.savefig(fname)
 
 
-
-def make_mcmc_trace_gif(idata_fname, analysis_data, n_frames=20, fname="mcmc.gif"):
+def make_mcmc_trace_gif(
+    idata_fname, analysis_data, n_frames=20, fname="mcmc.gif"
+):
     idata = az.from_netcdf(idata_fname)
     trace_frames = []
     N = len(idata.sample_stats.draw)
@@ -83,13 +91,15 @@ def plot_corner(idata_fname, trues=TRUES, fname="corner.png"):
     burnin = 0.5
     burnin_idx = int(burnin * len(idata.sample_stats.draw))
     idata = idata.sel(draw=slice(burnin_idx, None))
-    idata.posterior['ln_f'] = np.exp(idata.posterior.ln_f)
-    idata.posterior['ln_fdot'] = np.exp(idata.posterior.ln_fdot)
+    idata.posterior["ln_f"] = np.exp(idata.posterior.ln_f)
+    idata.posterior["ln_fdot"] = np.exp(idata.posterior.ln_fdot)
     trues = trues.copy()
     for i in range(1, 3):
         trues[i] = np.exp(trues[i])
 
-    corner.corner(idata, truths=trues, labels=["a", "f", "fdot"], axes_scale='log')
+    corner.corner(
+        idata, truths=trues, labels=["a", "f", "fdot"], axes_scale="log"
+    )
     plt.savefig(fname)
 
 
