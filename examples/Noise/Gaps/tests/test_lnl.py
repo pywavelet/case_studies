@@ -18,16 +18,11 @@ def test_lnl(plot_dir):
     plt.subplots_adjust(hspace=0)
     fig.savefig(f"{plot_dir}/lnl.png")
 
-
-
-
-
     assert data.hwavelet_gapped == template, "Template and hwavelet not equal!"
     lnl = data.lnl(*TRUES)
     assert lnl == 0, "Lnl not 0 for true params!"
 
 
-<<<<<<< HEAD
 
 def __plot(hdata, htemplate, lnl,gap, fname):
     # Plot comparison
@@ -47,5 +42,3 @@ def __plot(hdata, htemplate, lnl,gap, fname):
     axes[0].legend(loc="lower right")
     plt.subplots_adjust(hspace=0)
     fig.savefig(fname)
-=======
->>>>>>> 5fd7280488773321146b9f0caafd348945459c36

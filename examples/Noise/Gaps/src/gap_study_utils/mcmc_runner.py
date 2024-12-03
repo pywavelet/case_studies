@@ -142,10 +142,9 @@ def run_mcmc(
         idata_fname, analysis_data,
         fname=f'{outdir}/summary.png'
     )
+    print(f"Runtime: {_fmt_rutime(float(idata.sample_stats.runtime))}")
 
-    print(f"Runtime: {_fmt_rutime(idata.sample_stats.runtime)}")
-
-def _fmt_rutime(t):
+def _fmt_rutime(t:float):
     hours, remainder = divmod(t, 3600)
     minutes, seconds = divmod(remainder, 60)
     fmt = ""

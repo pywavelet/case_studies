@@ -30,6 +30,18 @@ class GapWindow:
             tmax: float,
             type: GapType = GapType.STITCH
     ):
+        """
+        Args:
+            time (np.array):
+                Time array representing the time points of the data.
+            gap_ranges (List[Tuple[float, float]]):
+                List of tuples where each tuple represents the start and end time of a gap.
+                Example: [(start1, end1), (start2, end2), ...]
+            tmax (float):
+                Maximum time value of the time array. This is used to define the upper limit of the time series.
+            type (GapType):
+                Type of gap window to apply. It can be either GapType.STITCH or GapType.RECTANGULAR_WINDOW.
+        """
         self.__overlap_check(gap_ranges)
         self.gap_ranges = gap_ranges
         self.n_gaps = len(gap_ranges)
