@@ -24,9 +24,10 @@ classifiers = [
 ]
 dependencies = [
     "pywavelet@git+https://github.com/pywavelet/pywavelet.git",
+    "scipy>=1.10.0", #
     "numpy",
-    "arviz",
-    "eryn",
+    "arviz>=0.18.0",
+#    "eryn",
     "bilby",
     "gif",
     "numba",
