@@ -23,7 +23,7 @@ classifiers = [
     "Programming Language :: Python :: 3.8",
 ]
 dependencies = [
-    "git+https://github.com/pywavelet/pywavelet.git",
+    "pywavelet@git+https://github.com/pywavelet/pywavelet.git",
     "numpy",
     "arviz",
     "eryn",
