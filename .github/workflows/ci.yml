@@ -34,6 +34,7 @@ jobs:
       - name: Upload Coverage to Coveralls
         if: ${{ github.ref == 'refs/heads/main' }}
         run: |
+          cd examples/Noise/Gaps
           coverage xml
           pip install coveralls
           coveralls

@@ -11,7 +11,7 @@ from bilby.core.prior import Gaussian, PriorDict, TruncatedGaussian, Uniform
 from .analysis_data import AnalysisData
 from .constants import *
 from .gap_window import GapType
-from .plotting import make_mcmc_trace_gif, plot_corner, plot_mcmc_summary
+from .plotting import plot_corner, plot_mcmc_summary
 from .random import seed
 from .signal_utils import waveform
 
