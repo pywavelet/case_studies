@@ -79,10 +79,16 @@ class AnalysisData:
 
     def _initialize_gap_window(self):
         """Set up the gap window if `gap_kwargs` are provided."""
-        self.gaps = GapWindow(
-            self.time, tmax=self.tmax,
-            **self.gap_kwargs
-        ) if self.gap_kwargs else None
+        gap_ranges = self.gap_kwargs.get("gap_ranges", None)
+        gap_type = self.gap_kwargs.get("type", GapType.STITCH)
+        if gap_ranges:
+            self.gaps = GapWindow(
+                self.time, tmax=self.tmax,
+                gap_ranges=gap_ranges,
+                type=gap_type
+            )
+        else:
+            self.gaps = None
 
     @property
     def ND(self) -> int:
@@ -268,8 +274,8 @@ class AnalysisData:
         plt.savefig(plotfn, bbox_inches="tight")
 
 
-    def htemplate(self, *args) -> Wavelet:
-        ht = self.waveform_generator(*args, self.time)
+    def htemplate(self, *args, **kwargs) -> Wavelet:
+        ht = self.waveform_generator(*args, **kwargs, t=self.time)
         if self.gaps is not None:
             hwavelet = self.gaps.gap_n_transform_timeseries(
                 ht, self.Nf, self.alpha, self.highpass_fmin

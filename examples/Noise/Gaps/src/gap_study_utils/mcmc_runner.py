@@ -91,7 +91,8 @@ def run_mcmc(
         data_kwargs=dict(
             dt=dt, noise=noise_realisation, tmax=tmax,
             highpass_fmin=highpass_fmin,
-            alpha=alpha
+            alpha=alpha,
+            Nf=Nf
         ),
         gap_kwargs=dict(
             type=GapType.STITCH,
@@ -120,9 +121,12 @@ def run_mcmc(
     sampler.run_mcmc(x0, n_iter, progress=True)
     pool.close()
 
+    runtime = time.time() - _start_time
+
     # Save the chain
     idata_fname = os.path.join(outdir, "emcee_chain.nc")
     idata = az.from_emcee(sampler, var_names=["a", "ln_f", "ln_fdot"])
+    idata.sample_stats["runtime"] = runtime
     idata = az.InferenceData(
         posterior=idata.posterior,
         sample_stats=idata.sample_stats,
@@ -138,8 +142,8 @@ def run_mcmc(
         idata_fname, analysis_data,
         fname=f'{outdir}/summary.png'
     )
-    runtime = time.time() - _start_time
-    print(f"Runtime: {_fmt_rutime(runtime)}")
+
+    print(f"Runtime: {_fmt_rutime(idata.sample_stats.runtime)}")
 
 def _fmt_rutime(t):
     hours, remainder = divmod(t, 3600)
@@ -151,3 +155,4 @@ def _fmt_rutime(t):
         fmt += f"{int(minutes)}m"
     if seconds:
         fmt += f"{int(seconds)}s"
+    return fmt

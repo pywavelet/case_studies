@@ -21,7 +21,7 @@ def test_analysis_data(plot_dir, gap_type, noise):
     os.makedirs(outdir, exist_ok=True)
 
     AnalysisData(
-        data_kwargs=dict(dt=dt, noise=noise, tmax=TMAX),
+        data_kwargs=dict(dt=dt, noise=noise, tmax=tmax),
         gap_kwargs=dict(
             type=gap_type,
             gap_ranges=gap_ranges

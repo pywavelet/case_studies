@@ -7,21 +7,22 @@ import numpy as np
 
 
 def test_lnl(plot_dir):
-    data = AnalysisData.generate_data(
-
-    )
+    data = AnalysisData.DEFAULT()
     template = data.htemplate(*TRUES)
 
-    hdiff = data.hwavelet - template
+    hdiff = data.hwavelet_gapped - template
     fig, ax = plt.subplots(3, 1, figsize=(8, 6), sharex=True)
-    data.hwavelet.plot(ax=ax[0], show_colorbar=False)
-    template.plot(ax=ax[1], show_colorbar=False)
-    hdiff.plot(ax=ax[2], show_colorbar=False)
+    data.hwavelet_gapped.plot(ax=ax[0], show_colorbar=False, label="Data")
+    template.plot(ax=ax[1], show_colorbar=False, label="Template")
+    hdiff.plot(ax=ax[2], show_colorbar=False, label="Difference")
     plt.subplots_adjust(hspace=0)
     fig.savefig(f"{plot_dir}/lnl.png")
 
 
-    assert data.hwavelet == template, "Template and hwavelet not equal!"
+
+
+
+    assert data.hwavelet_gapped == template, "Template and hwavelet not equal!"
     lnl = data.lnl(*TRUES)
     assert lnl == 0, "Lnl not 0 for true params!"
 

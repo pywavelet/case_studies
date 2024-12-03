@@ -26,8 +26,7 @@ class GapWindow:
     def __init__(
             self,
             time: np.array,
-            gap_ranges:
-            List[Tuple[float, float]],
+            gap_ranges:List[Tuple[float, float]],
             tmax: float,
             type: GapType = GapType.STITCH
     ):

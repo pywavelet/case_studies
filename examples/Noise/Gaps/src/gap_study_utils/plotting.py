@@ -46,7 +46,7 @@ def plot_mcmc_summary(idata, analysis_data:AnalysisData, i=None, fname=None):
     fig, axes = plt.subplots(4, 2, figsize=(10, 10))
     fig.suptitle(f"Iteration {i}")
     plot_trace(idata, axes, i, max_iter)
-    analysis_data.wavelet_data.plot(
+    analysis_data.data_wavelet.plot(
         ax=axes[3, 0],
         show_colorbar=False,
         label="Whiten Data\n",
