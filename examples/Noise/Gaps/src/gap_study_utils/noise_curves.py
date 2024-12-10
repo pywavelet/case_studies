@@ -29,6 +29,8 @@ def CornishPowerSpectralDensity(f: np.ndarray) -> FrequencySeries:
         * (Poms + (4 * Pacc) / ((2 * np.pi * f)) ** 4)
         * (1 + 0.6 * (f / f0) ** 2)
     )  # PSD
+
+    PSD[0] = PSD[1]
     return FrequencySeries(data=PSD, freq=f)
 
 
@@ -69,9 +71,11 @@ def generate_stationary_noise(
     variance_f = (
         ND * psd.data / (4 * dt)
     )  # Variance of stationary noise process
-    variance_f[0] = variance_f[
-        1
-    ]  # Set DC component to be the same as the next frequency
+
+    # variance_f[0] = variance_f[
+    #     1
+    # ]  # Set DC component to be the same as the next frequency
+
 
     # Generate noise in frequency domain
     real_noise_f = rng.normal(0, np.sqrt(variance_f))

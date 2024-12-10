@@ -56,6 +56,7 @@ class AnalysisData:
         self.data_kwargs = data_kwargs or {}
         self.gap_kwargs = gap_kwargs or {}
 
+        breakpoint()
         self.waveform_generator = waveform_generator
         self.waveform_parameters = waveform_parameters
         self._initialize_data_params()
@@ -147,6 +148,7 @@ class AnalysisData:
                 if self.waveform_generator
                 else TimeSeries._EMPTY(self.ND, self.dt)
             )
+
         return self.__ht
 
     @property
@@ -216,7 +218,7 @@ class AnalysisData:
                 else self.gaps.gap_n_transform_timeseries(
                     data_timeseries, self.Nf, self.alpha, self.highpass_fmin
                 )
-            )
+            ) 
         return self.__data_wavelet
 
     @property
@@ -335,6 +337,7 @@ class AnalysisData:
         return hwavelet
 
     def lnl(self, *args) -> float:
+        breakpoint()
         return compute_likelihood(
             self.data_wavelet, self.htemplate(*args), self.psd
         )

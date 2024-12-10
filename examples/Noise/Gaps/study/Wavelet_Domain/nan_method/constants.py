@@ -5,7 +5,7 @@ from bilby.core.prior import Gaussian, PriorDict, TruncatedGaussian, Uniform
 
 ONE_HOUR = 60 * 60
 ONE_DAY = 24 * ONE_HOUR
-A_TRUE = 1e-21
+A_TRUE = 1e-18
 F_TRUE = 3e-3
 FDOT_TRUE = 1e-8
 

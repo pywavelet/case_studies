@@ -126,7 +126,20 @@ def run_mcmc(
     sampler.run_mcmc(x0, n_iter, progress=True)
     pool.close()
 
+
+
     runtime = time.time() - _start_time
+
+
+    # print("Ollie's simple plotting")
+    # import matplotlib.pyplot as plt
+    # plt.clf()
+    # chain_a_flattened = sampler.get_chain()[:,:,1].flatten()
+    # log_like = sampler.get_log_prob()
+    # plt.plot(chain_a_flattened);plt.show()
+    # plt.clf()
+    # plt.plot(log_like);plt.show()
+
 
     # Save the chain
     idata_fname = os.path.join(outdir, "emcee_chain.nc")
