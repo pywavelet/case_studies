@@ -7,13 +7,13 @@ from corner import corner
 from matplotlib.font_manager import FontProperties
 
 os.chdir(
-    "/Users/alexander_burke/Documents/LISA_Science/Projects/Noise/pywavelet/examples/LISA/data/wavelet"
+    "data/wavelet"
 )
-samples_wavelet = np.load("samples.npy")
+samples_wavelet = np.load("samples_noise.npy")
 os.chdir(
-    "/Users/alexander_burke/Documents/LISA_Science/Projects/Noise/pywavelet/examples/LISA/data/freq_domain"
+    "../freq_domain"
 )
-samples_FD = np.load("samples.npy")
+samples_FD = np.load("samples_noise.npy")
 
 # Wavelet domain first
 params = [r"$\log_{10}a$", r"$\log_{10}\dot{f}$", r"$\log_{10}\ddot{f}$"]
@@ -41,14 +41,14 @@ corner_kwrgs = dict(
 
 figure = corner(samples_wavelet_stack, bins=30, color="blue", **corner_kwrgs)
 
-corner(
-    samples_FD,
-    bins=30,
-    fig=figure,
-    weights=weights,
-    color="red",
-    **corner_kwrgs,
-)
+# corner(
+#     samples_FD,
+#     bins=30,
+#     fig=figure,
+#     weights=weights,
+#     color="red",
+#     **corner_kwrgs,
+# )
 axes = np.array(figure.axes).reshape((N_param, N_param))
 
 true_vals = np.log10(np.array([5e-21, 1e-3, 1e-8]))
