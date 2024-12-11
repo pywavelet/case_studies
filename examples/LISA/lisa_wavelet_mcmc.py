@@ -6,13 +6,11 @@ from corner import corner
 from numpy.random import normal
 from scipy.signal.windows import tukey
 from tqdm import tqdm
-
-from pywavelet.data import Data
-from pywavelet.psd import evolutionary_psd_from_stationary_psd
-from pywavelet.transforms.types import FrequencySeries, TimeSeries
-from pywavelet.utils.lisa import FFT, get_lisa_data, waveform, zero_pad
-from pywavelet.utils.lvk import inject_signal_in_noise
-from pywavelet.utils.snr import compute_snr
+from pywavelet.transforms import from_freq_to_wavelet
+from pywavelet.transforms.types import FrequencySeries 
+from pywavelet.utils import (
+    evolutionary_psd_from_stationary_psd,
+)
 
 np.random.seed(1234)
 
@@ -105,7 +103,7 @@ def llike(data_wavelet, signal_wavelet, psd_wavelet):
     Variance of noise
     """
     inn_prod_wavelet = np.nansum(
-        ((data_wavelet - signal_wavelet) ** 2) / psd_wavelet
+        ((data_wavelet - signal_wavelet) ** 2) / psd_wavelet.data
     )
     return -0.5 * inn_prod_wavelet
 
@@ -189,9 +187,9 @@ def MCMC_run_wavelet(
         FFT(signal_init_t), freq=freq
     )  # Intial frequency domain signal
 
-    signal_init_wavelet = Data.from_frequencyseries(
+    signal_init_wavelet = from_freq_to_wavelet(
         signal_init_f, **kwgs
-    ).wavelet
+    ).data
 
     # for plots -- uncomment if you don't care.
 
@@ -247,9 +245,9 @@ def MCMC_run_wavelet(
             FFT(signal_prop_t), freq=freq
         )  # Intial frequency domain signal
 
-        signal_prop_wavelet = Data.from_frequencyseries(
+        signal_prop_wavelet = from_freq_to_wavelet(
             signal_prop_f, **kwgs
-        ).wavelet
+        ).data
         # Compute log posterior
         lp_prop = lpost(
             data_wavelet,
@@ -327,7 +325,8 @@ kwgs = dict(
 )
 
 
-h_wavelet = Data.from_frequencyseries(signal_f_series, **kwgs).wavelet
+breakpoint()
+h_wavelet = from_freq_to_wavelet(signal_f_series, **kwgs)
 psd_wavelet = evolutionary_psd_from_stationary_psd(
     psd=psd.data,
     psd_f=psd.freq,
@@ -336,7 +335,7 @@ psd_wavelet = evolutionary_psd_from_stationary_psd(
     dt=delta_t,
 )
 
-SNR2_wavelet = np.nansum((h_wavelet * h_wavelet) / psd_wavelet)
+SNR2_wavelet = np.nansum((h_wavelet.data * h_wavelet.data) / psd_wavelet.data)
 print("SNR in wavelet domain is", SNR2_wavelet ** (1 / 2))
 
 variance_noise_f = (
@@ -351,12 +350,12 @@ noise_f = np.random.normal(
 
 noise_f_series = FrequencySeries(noise_f, freq=freq)
 
-data_f = signal_f_series.data + 0 * noise_f_series.data
+data_f = signal_f_series.data + 1 * noise_f_series.data
 
 data_f_freq_series = FrequencySeries(data=data_f, freq=freq)
-data_wavelet = Data.from_frequencyseries(data_f_freq_series, **kwgs).wavelet
+data_wavelet = from_freq_to_wavelet(data_f_freq_series, **kwgs).data
 
-check_SNR = np.nansum((h_wavelet * h_wavelet) / psd_wavelet) ** (1 / 2)
+check_SNR = np.nansum((h_wavelet.data * h_wavelet.data) / psd_wavelet.data) ** (1 / 2)
 # %%
 
 # MCMC - parameter estimation
@@ -420,11 +419,8 @@ samples_burned = [
     f_chain_log_burnin,
     fdot_chain_log_burnin,
 ]
-
-os.chdir(
-    "/Users/alexander_burke/Documents/LISA_Science/Projects/Noise/pywavelet/examples/LISA/data/wavelet"
-)
-np.save("samples", samples_burned)
+os.chdir('data/wavelet')
+np.save("samples_noise.npy", samples_burned)
 
 # Plot corner plot
 samples = np.column_stack(samples_burned)  # Stack samples to plot corner plot

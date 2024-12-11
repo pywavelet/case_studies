@@ -300,14 +300,14 @@ N_f = len(variance_noise_f)  # Length of signal in frequency domain
 noise_f = np.random.normal(
     0, np.sqrt(variance_noise_f), N_f
 ) + 1j * np.random.normal(0, np.sqrt(variance_noise_f), N_f)
-data_f = h_true_f + 0 * noise_f  # Construct data stream
+data_f = h_true_f + 1 * noise_f  # Construct data stream
 # %%
 
 
 # MCMC - parameter estimation
 
-Ntotal = 30000  # Total number of iterations
-burnin = 6000  # Set burn-in. This is the amount of samples we will discard whilst looking
+Ntotal = 20_000  # Total number of iterations
+burnin = 2000  # Set burn-in. This is the amount of samples we will discard whilst looking
 # for the true parameters
 
 
@@ -368,9 +368,9 @@ samples_burned = [
 
 
 os.chdir(
-    "/Users/alexander_burke/Documents/LISA_Science/Projects/Noise/pywavelet/examples/LISA/data/freq_domain"
+    "data/freq_domain"
 )
-np.save("samples", samples_burned)
+np.save("samples_noise.npy", samples_burned)
 
 # Plot corner plot
 samples = np.column_stack(samples_burned)  # Stack samples to plot corner plot
